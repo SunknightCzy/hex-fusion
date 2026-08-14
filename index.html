@@ -134,6 +134,15 @@
       font-size: 11px;
     }
 
+    .cool-note {
+      display: block;
+      font-size: 10px;
+      line-height: 1.3;
+      color: rgba(255, 255, 255, 0.55);
+      margin-top: 2px;
+      white-space: nowrap;
+    }
+
     .cool-input {
       width: 66px;
       background: rgba(0, 0, 0, 0.35);
@@ -856,13 +865,14 @@
           <span class="score-label">Best</span>
           <span class="score-value" id="best">0</span>
         </div>
-        <div class="score-box heat-box" id="heatBox" title="堆芯热量：每次聚变 +1，每回合散热 -1.5（每个 ★ 再额外 -1），达到 16 失控（合成 ★ 后上限 32）">
+        <div class="score-box heat-box" id="heatBox" title="堆芯热量：每次聚变 +1；每回合散热基础值 1.5（每个 ★ 额外 +1）；达到 16 失控（合成 ★ 后上限 32）">
           <span class="score-label">🔥 热量</span>
           <span class="score-value" id="heat">0</span>
         </div>
-        <div class="score-box cool-box" title="每回合散热基础值（可修改，默认 1.5）；每个 ★ 再额外 -1">
-          <span class="score-label">散热/回合</span>
-          <input type="number" id="coolInput" class="cool-input" min="0" max="30" step="0.5" value="1.5" inputmode="decimal" aria-label="每回合散热" />
+        <div class="score-box cool-box" title="基础散热值（可修改，默认 1.5）；每个 ★ 额外 +1">
+          <span class="score-label">基础散热值</span>
+          <input type="number" id="coolInput" class="cool-input" min="0" max="30" step="0.5" value="1.5" inputmode="decimal" aria-label="基础散热值" />
+          <span class="cool-note">默认 1.5 · 每个 ★ +1</span>
         </div>
         <div class="score-box" title="最近 10 回合的平均聚变数（滚动窗口）">
           <span class="score-label">平均聚变</span>
@@ -941,7 +951,7 @@
       const SHOW_REACTION_KEY = 'hex2048.showReaction';
       // "别炸了"模式：热量系统 —— 每次聚变 +1、达到上限堆芯失控。
       // 每回合散热随棋盘上的 ★ 数量线性增加：基础散热（UI 可调，默认 1.5），
-      // 每个 ★ 再额外 -1（0 个★ 降 1.5，1 个★ 降 2.5，2 个★ 降 3.5，依此类推）。
+      // 每个 ★ 额外 +1（0 个★ 降 1.5，1 个★ 降 2.5，2 个★ 降 3.5，依此类推）。
       // 热度上限动态：合成 ★ 前为 16，合成出第一个人工元素（★）后提升到 32。
       const HEAT_LIMIT_BASE = 16;
       const HEAT_LIMIT_AFTER_ARTIFICIAL = 32;
@@ -2433,8 +2443,8 @@
       function updateHeatTitle() {
         const base = formatCool(heatCoolPerMove);
         heatBoxEl.title = artificialUnlocked
-          ? '堆芯热量：每次聚变 +1，每回合散热 -' + base + '（每个 ★ 再额外 -1），达到 ' + HEAT_LIMIT_AFTER_ARTIFICIAL + ' 失控'
-          : '堆芯热量：每次聚变 +1，每回合散热 -' + base + '（每个 ★ 再额外 -1），达到 ' + HEAT_LIMIT_BASE + ' 失控（合成 ★ 后上限提升至 ' + HEAT_LIMIT_AFTER_ARTIFICIAL + '）';
+          ? '堆芯热量：每次聚变 +1；每回合散热基础值 ' + base + '（每个 ★ 额外 +1）；达到 ' + HEAT_LIMIT_AFTER_ARTIFICIAL + ' 失控'
+          : '堆芯热量：每次聚变 +1；每回合散热基础值 ' + base + '（每个 ★ 额外 +1）；达到 ' + HEAT_LIMIT_BASE + ' 失控（合成 ★ 后上限提升至 ' + HEAT_LIMIT_AFTER_ARTIFICIAL + '）';
       }
 
       // 更新热量显示与危险等级（animate=true 时数字跳动一下）
