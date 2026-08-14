@@ -970,6 +970,9 @@
         return key(cell.q, cell.r);
       }
 
+      // 棋盘全部格子的键集合（就近空位搜索用）
+      const BOARD_KEYS = new Set(CELLS.map(keyOf));
+
       function hexToPixel(q, r) {
         return {
           x: SQRT3 * HEX_SIZE * (q + r / 2),
@@ -2181,6 +2184,28 @@
         return null;
       }
 
+      // 从反应中心向外 BFS，找最近的空位（放置产物多于参与原子时的多余产物；
+      // 不再局限于中心的 6 个直接邻居，避免原子因附近无空位而消失）
+      function findNearestEmptySpot(grid, center, taken) {
+        const queue = [{ q: center.q, r: center.r }];
+        const visited = new Set();
+        while (queue.length) {
+          const cur = queue.shift();
+          const k = key(cur.q, cur.r);
+          if (!BOARD_KEYS.has(k) || visited.has(k)) {
+            continue;
+          }
+          visited.add(k);
+          if (!grid.has(k) && !taken.has(k)) {
+            return { q: cur.q, r: cur.r };
+          }
+          for (const d of DIRS) {
+            queue.push({ q: cur.q + d.q, r: cur.r + d.r });
+          }
+        }
+        return null;
+      }
+
       function applyFusionWave(wave, speedScale = 1, instant = false) {
         // 级联加速：本波粒子特效按同一倍速播放（倍速>1 时更快）；瞬时结算不加速
         fxTimeScale = instant ? 1 : 1 / speedScale;
@@ -2281,15 +2306,9 @@
             if (i < spots.length) {
               spot = { q: spots[i].q, r: spots[i].r };
             } else {
-              // 产物多于参与原子（如 He³+He³→He⁴+2H）：中心附近空位
-              for (const d of DIRS) {
-                const c = { q: r.center.q + d.q, r: r.center.r + d.r };
-                const k = key(c.q, c.r);
-                if (CELLS.some((cc) => cc.q === c.q && cc.r === c.r) && !grid.has(k) && !taken.has(k)) {
-                  spot = c;
-                  break;
-                }
-              }
+              // 产物多于参与原子（如 He³+He³→He⁴+2H）：从反应中心向外 BFS
+              // 找最近的空位，避免因附近无空位而丢失产物原子
+              spot = findNearestEmptySpot(grid, r.center, taken);
             }
             if (!spot) {
               return;
