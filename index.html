@@ -594,6 +594,27 @@
       box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.2), 0 0 28px rgba(120, 100, 240, 0.6);
     }
 
+    /* 超级★：多彩流动光效（色相旋转 + 渐变流动），3×★ 合并而成 */
+    .tile-star {
+      background: linear-gradient(135deg, #ff5e8a, #b45cff, #4cc6ff, #5dffb0, #ffd24c, #ff5e8a);
+      background-size: 300% 300%;
+      color: #fff;
+      text-shadow: 0 0 10px rgba(255, 255, 255, 0.95);
+      box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.2), 0 0 30px rgba(190, 130, 255, 0.85);
+      animation: fusion-burst 0.4s ease-out both, star-flow 4s linear 0.45s infinite;
+    }
+
+    @keyframes star-flow {
+      from {
+        background-position: 0% 50%;
+        filter: hue-rotate(0deg);
+      }
+      to {
+        background-position: 300% 50%;
+        filter: hue-rotate(360deg);
+      }
+    }
+
     .arrow {
       position: absolute;
       width: 58px;
@@ -960,8 +981,11 @@
       const HEAT_COOL_KEY = 'hex2048.heatCool';
       const HEAT_COOL_PER_STAR = 1;
       const HEAT_PER_FUSION = 1;
-      // 人工元素 = ★（999，人工合成超重核，游戏终点）
-      const ARTIFICIAL_VALUES = new Set([999]);
+      // 人工元素 = ★（999，人工合成超重核，游戏终点）；超级★（1000，3×★合并，多彩流动光效）
+      const ARTIFICIAL_VALUES = new Set([999, 1000]);
+      // 超级★：辐射增益等同 3 颗普通★
+      const SUPER_STAR_VALUE = 1000;
+      const SUPER_STAR_RADIATION_WEIGHT = 3;
 
       const DIRS = [
         { name: 'E', q: 1, r: 0 },
@@ -985,7 +1009,8 @@
         56: 'tile-256',
         197: 'tile-512',
         238: 'tile-1024',
-        999: 'tile-super'
+        999: 'tile-super',
+        1000: 'tile-star'
       };
 
       function makeRegularCells(radius) {
@@ -1194,6 +1219,8 @@
       //     3×⁵⁶Fe + 中子暴 → ¹⁹⁷Au        （168 → 197）
       //     2×¹⁹⁷Au + 中子暴 → ²³⁸U + 2×⁵⁶Fe（394 → 350）
       //   2×U-238 → ★ 为游戏终点（人工合成超重核 ★），完全虚构，属游戏设定
+      //   3×★ → 超级★（游戏设定：三颗星合并为带多彩流动光效的超级星，
+      //   对切伦科夫辐射的增益等同 3 颗普通★）
       const FUSION_RECIPES = [
         { needs: { 1: 2 }, product: 2 },                                  // ¹H+¹H → ²D（pp链）
         { needs: { 2: 1, 1: 1 }, product: 3 },                            // ²D+¹H → ³He
@@ -1206,7 +1233,8 @@
         { needs: { 28: 2 }, product: 56 },                                // 2×²⁸Si → ⁵⁶Fe（硅燃烧）
         { needs: { 56: 3 }, product: 197, neutronBurst: true },            // 3×⁵⁶Fe+中子暴 → ¹⁹⁷Au（r过程抽象）
         { needs: { 197: 2 }, product: 238, byproducts: [56, 56], neutronBurst: true }, // 2×¹⁹⁷Au+中子暴 → ²³⁸U+2×⁵⁶Fe（r过程抽象）
-        { needs: { 238: 2 }, product: 999 }                               // 2×U-238 → ★（游戏终点）
+        { needs: { 238: 2 }, product: 999 },                              // 2×U-238 → ★（游戏终点）
+        { needs: { 999: 3 }, product: 1000 }                              // 3×★ → 超级★（多彩流动光效，辐射增益等同 3 颗★）
       ];
 
       // 参与聚变的原子必须彼此六邻连通（真正的"接触"），
@@ -1399,7 +1427,7 @@
       // 精细同位素链（数值 = 质量数）
       const NE_ELEMENT_BY_VALUE = {
         1: 'H', 2: 'D', 3: 'He', 4: 'He', 12: 'C', 16: 'O', 20: 'Ne',
-        24: 'Mg', 28: 'Si', 56: 'Fe', 197: 'Au', 238: 'U', 999: '★'
+        24: 'Mg', 28: 'Si', 56: 'Fe', 197: 'Au', 238: 'U', 999: '★', 1000: '★'
       };
 
       // "别炸了"模式：数值 → 相对原子质量（整数取质量数, 单位 u）
@@ -1416,7 +1444,8 @@
         56: '56',      // ⁵⁶Fe
         197: '197',    // ¹⁹⁷Au
         238: '238',    // ²³⁸U
-        999: '∞'       // 人工合成超重核 ★
+        999: '∞',      // 人工合成超重核 ★
+        1000: '∞'      // 超级★（3×★ 合并）
       };
 
       // 当前模式下的元素符号 / 相对原子质量
@@ -2133,15 +2162,30 @@
         }
       }
 
-      // ---------- 切伦科夫辐射（★ 越多，地图边框外放射状粒子越强） ----------
+      // ---------- 切伦科夫辐射（★ 越多，地图边框外放射状粒子越强、越长） ----------
       // 棋盘外露边（含朝外法线），供从边框向外放射粒子
       const cherenkov = {
         streaks: [],
         running: false,
         intensity: 0,
-        edges: null
+        weight: 0,
+        edges: null,
+        flare: { active: false, t: 0, duration: 3, rays: [] }
       };
       let lastCherenkovTime = 0;
+
+      // 辐射权重：普通★ = 1，超级★ = 3（增益等同三颗普通★）
+      function radiationWeight() {
+        let w = 0;
+        for (const tile of grid.values()) {
+          if (tile.value === SUPER_STAR_VALUE) {
+            w += SUPER_STAR_RADIATION_WEIGHT;
+          } else if (tile.value === 999) {
+            w += 1;
+          }
+        }
+        return w;
+      }
 
       function buildBoardEdges() {
         if (cherenkov.edges) {
@@ -2185,13 +2229,13 @@
         return segs;
       }
 
-      // ★ 数量 → 辐射强度（0~1）：1 个★ 0.6，2 个★ 0.8，3 个★ 及以上 1.0
+      // 辐射权重 → 强度（0~1）：权重 1（1★）0.6，2 0.8，3 及以上 1.0
       function cherenkovIntensity() {
-        const n = countArtificial();
-        if (n === 0) {
+        const w = radiationWeight();
+        if (w === 0) {
           return 0;
         }
-        return Math.min(1, 0.4 + n * 0.2);
+        return Math.min(1, 0.4 + w * 0.2);
       }
 
       function sizeCherenkov() {
@@ -2214,10 +2258,12 @@
         const dt = lastCherenkovTime ? Math.min(1 / 30, (now - lastCherenkovTime) / 1000) : 1 / 60;
         lastCherenkovTime = now;
         const intensity = cherenkov.intensity;
+        const weight = cherenkov.weight;
         if (intensity > 0) {
-          // 每帧按强度补充放射状粒子（1~3 条）
+          // 每帧按强度补充放射状粒子（1~3 条）；每条长度随 ★ 权重增长
           const edges = buildBoardEdges();
           const spawnN = intensity >= 0.95 ? 3 : intensity >= 0.7 ? 2 : 1;
+          const lenFactor = 1 + weight * 0.4;
           for (let i = 0; i < spawnN && cherenkov.streaks.length < 90; i += 1) {
             const e = edges[Math.floor(Math.random() * edges.length)];
             const t = Math.random();
@@ -2230,10 +2276,40 @@
               vx: Math.cos(angle) * speed,
               vy: Math.sin(angle) * speed,
               life: 0,
-              maxLife: 0.5 + Math.random() * 0.7,
+              maxLife: 0.5 + Math.random() * 0.7 + weight * 0.06,
               width: 1 + Math.random() * 1.6,
-              intensity
+              intensity,
+              len: lenFactor
             });
+          }
+        }
+        // 三★合并边框爆发：强烈明显的多色放射光效（持续数秒）
+        const flare = cherenkov.flare;
+        if (flare.active) {
+          flare.t += dt;
+          const ft = Math.min(1, flare.t / flare.duration);
+          const fade = 1 - ft;
+          const rayLen = 70 + 180 * fade;
+          const lw = 1.5 + 2.5 * fade;
+          for (const ray of flare.rays) {
+            const hue = (ray.hue + ft * 360) % 360;
+            const ang = Math.atan2(ray.ny, ray.nx) + (Math.random() - 0.5) * 0.35;
+            const ex = ray.x + Math.cos(ang) * rayLen;
+            const ey = ray.y + Math.sin(ang) * rayLen;
+            ctx.save();
+            ctx.strokeStyle = 'hsla(' + hue + ', 100%, 65%, ' + (fade * 0.85) + ')';
+            ctx.lineWidth = lw;
+            ctx.lineCap = 'round';
+            ctx.shadowColor = 'hsla(' + hue + ', 100%, 60%, ' + (fade * 0.8) + ')';
+            ctx.shadowBlur = 12;
+            ctx.beginPath();
+            ctx.moveTo(ray.x, ray.y);
+            ctx.lineTo(ex, ey);
+            ctx.stroke();
+            ctx.restore();
+          }
+          if (ft >= 1) {
+            flare.active = false;
           }
         }
         for (let i = cherenkov.streaks.length - 1; i >= 0; i -= 1) {
@@ -2252,22 +2328,43 @@
           if (alpha <= 0.01) {
             continue;
           }
-          // 切伦科夫蓝：细长光迹从尾到头渐亮
+          // 切伦科夫蓝：细长光迹从尾到头渐亮（长度随 ★ 权重增长）
           ctx.strokeStyle = 'rgba(96, 196, 255, ' + alpha + ')';
           ctx.lineWidth = s.width * k + 0.5;
           ctx.lineCap = 'round';
           ctx.beginPath();
-          ctx.moveTo(s.x - s.vx * 0.07, s.y - s.vy * 0.07);
+          ctx.moveTo(s.x - s.vx * 0.07 * s.len, s.y - s.vy * 0.07 * s.len);
           ctx.lineTo(s.x, s.y);
           ctx.stroke();
         }
-        if (cherenkov.intensity > 0 || cherenkov.streaks.length) {
+        if (cherenkov.intensity > 0 || cherenkov.streaks.length || cherenkov.flare.active) {
           requestAnimationFrame(cherenkovTick);
         } else {
           cherenkov.running = false;
           lastCherenkovTime = 0;
           ctx.clearRect(0, 0, w, h);
         }
+      }
+
+      // 三颗★合并：边框爆发多色放射光效（数秒）+ 号角音效
+      function triggerCherenkovFlare() {
+        const edges = buildBoardEdges();
+        const rays = [];
+        for (let i = 0; i < 28; i += 1) {
+          const e = edges[Math.floor(Math.random() * edges.length)];
+          const t = Math.random();
+          rays.push({
+            x: e.ax + (e.bx - e.ax) * t,
+            y: e.ay + (e.by - e.ay) * t,
+            nx: e.nx,
+            ny: e.ny,
+            hue: (i / 28) * 360
+          });
+        }
+        cherenkov.flare = { active: true, t: 0, duration: 3, rays };
+        Sound.star();
+        // 确保辐射循环在运行（此时至少 3★，权重≥3）
+        updateCherenkov();
       }
 
       // 根据当前 ★ 数量启停/更新辐射强度
@@ -2493,9 +2590,14 @@
             const tile = createTile(value, spot.q, spot.r, i >= spots.length);
             if (i === 0) {
               const inner = tile.el.querySelector('.tile-inner');
-              inner.classList.add('tile-fusion');
-              // 级联加速：按本波倍速缩短爆裂动画时长（瞬时结算为 1 倍速）
-              inner.style.animationDuration = (FUSION_BURST_MS / 1000 * speedScale) + 's';
+              if (value === SUPER_STAR_VALUE) {
+                // 超级★：自带爆裂+多彩流动动画（.tile-star），不再叠加 tile-fusion
+                triggerCherenkovFlare();
+              } else {
+                inner.classList.add('tile-fusion');
+                // 级联加速：按本波倍速缩短爆裂动画时长（瞬时结算为 1 倍速）
+                inner.style.animationDuration = (FUSION_BURST_MS / 1000 * speedScale) + 's';
+              }
               // 粒子效果动画：瞬时结算时也播放，不阻塞玩家输入
               spawnFusionParticles(spot.q, spot.r, r.product);
               // 合成出第一个人工元素（★）：解锁强化（每回合散热 3 + ★ 周围生成 H/D 燃料）
@@ -2513,8 +2615,8 @@
       // 聚变反应描述："¹H + ¹H → ²D"、"³He + ³He → ⁴He + ¹H + ¹H"（质量数作左上角标，整数；
       // 氘 ²H 与棋子一致记作 D，并同样标注质量角标）
       function massTag(value) {
-        if (value === 999) {
-          return ''; // ★ 为游戏终点，不标质量
+        if (value === 999 || value === 1000) {
+          return ''; // ★ / 超级★ 为游戏终点，不标质量
         }
         return '<sup>' + value + '</sup>';
       }
