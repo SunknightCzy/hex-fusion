@@ -228,33 +228,6 @@
       border-color: rgba(255, 255, 255, 0.14);
     }
 
-    /* 自动玩开关按钮 */
-    .auto-play {
-      background: rgba(255, 255, 255, 0.10);
-      color: #e8e3da;
-      border: 1px solid rgba(173, 196, 255, 0.25);
-      padding: 10px 14px;
-      border-radius: 12px;
-      font-weight: 600;
-      box-shadow: 0 5px 14px rgba(0, 0, 0, 0.3);
-      transition: background 0.15s ease, transform 0.15s ease, opacity 0.15s ease;
-    }
-
-    .auto-play:hover {
-      background: rgba(255, 255, 255, 0.17);
-    }
-
-    .auto-play:active {
-      transform: translateY(1px);
-    }
-
-    /* 自动玩开启：高亮提示正在运行 */
-    .auto-play.on {
-      background: rgba(120, 220, 170, 0.22);
-      border-color: rgba(120, 220, 170, 0.6);
-      color: #c9f5dd;
-    }
-
     #mainRow {
       flex: 1;
       min-height: 0;
@@ -682,6 +655,14 @@
       transform: rotate(30deg);
     }
 
+    /* 切伦科夫辐射层：★ 越多，边框外放射状粒子越强（置于边框/按钮之下） */
+    #cherenkov {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 2;
+    }
+
     #fx {
       position: absolute;
       inset: 0;
@@ -857,14 +838,6 @@
     <header class="topbar">
       <div class="brand">hex-fusion</div>
       <div class="scores">
-        <div class="score-box">
-          <span class="score-label">Score</span>
-          <span class="score-value" id="score">0</span>
-        </div>
-        <div class="score-box">
-          <span class="score-label">Best</span>
-          <span class="score-value" id="best">0</span>
-        </div>
         <div class="score-box heat-box" id="heatBox" title="堆芯热量：每次聚变 +1；每回合散热基础值 1.5（每个 ★ 额外 +1）；达到 16 失控（合成 ★ 后上限 32）">
           <span class="score-label">🔥 热量</span>
           <span class="score-value" id="heat">0</span>
@@ -874,12 +847,7 @@
           <input type="number" id="coolInput" class="cool-input" min="0" max="30" step="0.5" value="1.5" inputmode="decimal" aria-label="基础散热值" />
           <span class="cool-note">默认 1.5 · 每个 ★ +1</span>
         </div>
-        <div class="score-box" title="最近 10 回合的平均聚变数（滚动窗口）">
-          <span class="score-label">平均聚变</span>
-          <span class="score-value" id="avgFusion">0</span>
-        </div>
       </div>
-      <button class="auto-play" id="autoPlayBtn" type="button">自动玩：关</button>
       <button class="toggle-reaction" id="toggleReactionBtn" type="button">反应过程：显示</button>
       <button class="new-game" id="newGameBtn" type="button">新游戏</button>
     </header>
@@ -890,6 +858,7 @@
           <div id="boardWrap">
             <div id="board"></div>
             <svg id="mapOutline" viewBox="0 0 840 720" preserveAspectRatio="none"></svg>
+            <canvas id="cherenkov"></canvas>
             <canvas id="fx"></canvas>
             <div id="controls"></div>
           </div>
@@ -947,7 +916,6 @@
       const CASCADE_SPEEDUP = 0.78;
       // 级联加速后波间隔的下限（毫秒），避免后期波次过快失去可读性
       const CASCADE_MIN_DELAY_MS = 150;
-      const BEST_KEY = 'hex2048.bestScore';
       const SHOW_REACTION_KEY = 'hex2048.showReaction';
       // "别炸了"模式：热量系统 —— 每次聚变 +1、达到上限堆芯失控。
       // 每回合散热随棋盘上的 ★ 数量线性增加：基础散热（UI 可调，默认 1.5），
@@ -1377,11 +1345,8 @@
       const mapOutlineEl = document.getElementById('mapOutline');
       const gameEl = document.getElementById('game');
       const controlsEl = document.getElementById('controls');
-      const scoreEl = document.getElementById('score');
-      const bestEl = document.getElementById('best');
       const heatBoxEl = document.getElementById('heatBox');
       const heatEl = document.getElementById('heat');
-      const avgFusionEl = document.getElementById('avgFusion');
       const viewportEl = document.getElementById('viewport');
       const overlayEl = document.getElementById('overlay');
       const overlayTitleEl = document.getElementById('overlayTitle');
@@ -1390,11 +1355,12 @@
       const keepGoingBtn = document.getElementById('keepGoingBtn');
       const newGameBtn = document.getElementById('newGameBtn');
       const toggleReactionBtn = document.getElementById('toggleReactionBtn');
-      const autoPlayBtn = document.getElementById('autoPlayBtn');
       const coolInput = document.getElementById('coolInput');
       const fusionBarEl = document.getElementById('fusionBar');
       const fxCanvas = document.getElementById('fx');
       const fxCtx = fxCanvas.getContext('2d');
+      const cherenkovCanvas = document.getElementById('cherenkov');
+      const cherenkovCtx = cherenkovCanvas.getContext('2d');
 
       // 精细同位素链（数值 = 质量数）
       const NE_ELEMENT_BY_VALUE = {
@@ -1446,8 +1412,6 @@
 
       let grid = new Map();
       let tileSeq = 0;
-      let score = 0;
-      let best = loadBest();
       // 是否显示聚变反应过程动画（关闭后瞬间结算，无动画/无边框提示）
       let showReaction = loadShowReaction();
       let busy = false;
@@ -1458,18 +1422,11 @@
       let heat = 0;
       // 每回合散热基础值（顶栏 UI 可调，默认 1.5，localStorage 持久化）
       let heatCoolPerMove = loadHeatCool();
-      // 是否已合成出第一个人工元素（★）：解锁后热度上限提升到 30，
+      // 是否已合成出第一个人工元素（★）：解锁后热度上限提升到 32，
       // 且每回合在每个 ★ 周围随机生成一个 H/D 燃料（散热按 ★ 数量线性叠加）
       let artificialUnlocked = false;
       // 最近一步滑动内发生的聚变反应（用于右侧"上一步聚变"提示）
       let fusionHistory = [];
-      // 每回合平均聚变统计：只统计最近 AVG_WINDOW_MOVES 回合内的平均聚变数（滚动窗口）
-      const AVG_WINDOW_MOVES = 10;
-      let fusionCounts = [];
-      // 自动玩：定时随机选择方向移动
-      let autoPlay = false;
-      let autoPlayTimer = null;
-      const AUTOPLAY_INTERVAL_MS = 600;
 
       function loadShowReaction() {
         try {
@@ -1510,23 +1467,6 @@
 
       function formatCool(v) {
         return Number.isInteger(v) ? String(v) : v.toFixed(1);
-      }
-
-      function loadBest() {
-        try {
-          const value = Number.parseInt(localStorage.getItem(BEST_KEY) || '0', 10);
-          return Number.isFinite(value) && value > 0 ? value : 0;
-        } catch (_) {
-          return 0;
-        }
-      }
-
-      function saveBest() {
-        try {
-          localStorage.setItem(BEST_KEY, String(best));
-        } catch (_) {
-          // localStorage may be unavailable in privacy-restricted contexts.
-        }
       }
 
       function tileValueClass(value) {
@@ -1791,53 +1731,24 @@
         }
         moveToken += 1;
         clearBoard();
-        score = 0;
         busy = false;
         won = false;
         gameEnded = false;
         fusionHistory = [];
         heat = 0;
         artificialUnlocked = false;
-        fusionCounts = [];
         // 清理级联聚变遗留的"正在反应"边框高亮与粒子倍速
         mapOutlineEl.classList.remove('reacting');
         fxTimeScale = 1;
-        // 手动开新局：停止自动玩
-        stopAutoPlay();
         updateHeatTitle();
-        updateAvgFusion();
+        updateCherenkov();
         updateHeatUI(false);
         renderFusionLog();
-        updateScore();
         hideOverlay();
         setArrowsDisabled(false);
 
         addRandomTile();
         addRandomTile();
-      }
-
-      function updateScore() {
-        scoreEl.textContent = String(score);
-        if (score > best) {
-          best = score;
-          saveBest();
-        }
-        bestEl.textContent = String(best);
-      }
-
-      function addScore(amount) {
-        if (!amount) {
-          return;
-        }
-        score += amount;
-        updateScore();
-      }
-
-      // 每回合平均聚变数 = 最近 AVG_WINDOW_MOVES 回合聚变数之和 ÷ 窗口内回合数（保留一位小数）
-      function updateAvgFusion() {
-        const total = fusionCounts.reduce((sum, n) => sum + n, 0);
-        avgFusionEl.textContent =
-          fusionCounts.length > 0 ? (total / fusionCounts.length).toFixed(1) : '0';
       }
 
       // ---------- 聚变粒子特效 ----------
@@ -2185,6 +2096,165 @@
         }
       }
 
+      // ---------- 切伦科夫辐射（★ 越多，地图边框外放射状粒子越强） ----------
+      // 棋盘外露边（含朝外法线），供从边框向外放射粒子
+      const cherenkov = {
+        streaks: [],
+        running: false,
+        intensity: 0,
+        edges: null
+      };
+      let lastCherenkovTime = 0;
+
+      function buildBoardEdges() {
+        if (cherenkov.edges) {
+          return cherenkov.edges;
+        }
+        const hw = CELL_W / 2;
+        const hh = CELL_H / 2;
+        // 六角格相对中心的六个角（与 clip-path 多边形一致）
+        const rel = [
+          [0, -hh], [hw, -hh / 2], [hw, hh / 2],
+          [0, hh], [-hw, hh / 2], [-hw, -hh / 2]
+        ];
+        // 边 i 对应的邻居方向（DIRS 索引）：边中点方向即该边的朝外法线
+        const edgeForDir = [1, 0, 5, 4, 3, 2];
+        const cellSet = new Set(CELLS.map(keyOf));
+        const segs = [];
+        for (const cell of CELLS) {
+          const p = hexToPixel(cell.q, cell.r);
+          const px = CENTER_X + p.x;
+          const py = CENTER_Y + p.y;
+          for (let k = 0; k < 6; k += 1) {
+            const nb = DIRS[k];
+            if (!cellSet.has(key(cell.q + nb.q, cell.r + nb.r))) {
+              const ei = edgeForDir[k];
+              const a = rel[ei];
+              const b = rel[(ei + 1) % 6];
+              const nv = hexToPixel(nb.q, nb.r);
+              const len = Math.hypot(nv.x, nv.y) || 1;
+              segs.push({
+                ax: px + a[0],
+                ay: py + a[1],
+                bx: px + b[0],
+                by: py + b[1],
+                nx: nv.x / len,
+                ny: nv.y / len
+              });
+            }
+          }
+        }
+        cherenkov.edges = segs;
+        return segs;
+      }
+
+      // ★ 数量 → 辐射强度（0~1）：1 个★ 0.6，2 个★ 0.8，3 个★ 及以上 1.0
+      function cherenkovIntensity() {
+        const n = countArtificial();
+        if (n === 0) {
+          return 0;
+        }
+        return Math.min(1, 0.4 + n * 0.2);
+      }
+
+      function sizeCherenkov() {
+        const dpr = window.devicePixelRatio || 1;
+        const w = gameEl.clientWidth || TOTAL_W;
+        const h = gameEl.clientHeight || TOTAL_H;
+        cherenkovCanvas.width = Math.round(w * dpr);
+        cherenkovCanvas.height = Math.round(h * dpr);
+        cherenkovCanvas.style.width = w + 'px';
+        cherenkovCanvas.style.height = h + 'px';
+        cherenkovCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      }
+
+      function cherenkovTick(now) {
+        const ctx = cherenkovCtx;
+        const w = gameEl.clientWidth || TOTAL_W;
+        const h = gameEl.clientHeight || TOTAL_H;
+        ctx.clearRect(0, 0, w, h);
+        // 真实时间推进（钳制上限）：后台切回时残留粒子快速走完
+        const dt = lastCherenkovTime ? Math.min(1 / 30, (now - lastCherenkovTime) / 1000) : 1 / 60;
+        lastCherenkovTime = now;
+        const intensity = cherenkov.intensity;
+        if (intensity > 0) {
+          // 每帧按强度补充放射状粒子（1~3 条）
+          const edges = buildBoardEdges();
+          const spawnN = intensity >= 0.95 ? 3 : intensity >= 0.7 ? 2 : 1;
+          for (let i = 0; i < spawnN && cherenkov.streaks.length < 90; i += 1) {
+            const e = edges[Math.floor(Math.random() * edges.length)];
+            const t = Math.random();
+            // 锥形散布：朝外法线 ±0.45 rad
+            const angle = Math.atan2(e.ny, e.nx) + (Math.random() - 0.5) * 0.9;
+            const speed = (130 + Math.random() * 170) * (0.8 + intensity * 0.6);
+            cherenkov.streaks.push({
+              x: e.ax + (e.bx - e.ax) * t,
+              y: e.ay + (e.by - e.ay) * t,
+              vx: Math.cos(angle) * speed,
+              vy: Math.sin(angle) * speed,
+              life: 0,
+              maxLife: 0.5 + Math.random() * 0.7,
+              width: 1 + Math.random() * 1.6,
+              intensity
+            });
+          }
+        }
+        for (let i = cherenkov.streaks.length - 1; i >= 0; i -= 1) {
+          const s = cherenkov.streaks[i];
+          s.life += dt;
+          if (s.life >= s.maxLife) {
+            cherenkov.streaks.splice(i, 1);
+            continue;
+          }
+          s.x += s.vx * dt;
+          s.y += s.vy * dt;
+          s.vx *= 0.9;
+          s.vy *= 0.9;
+          const k = 1 - s.life / s.maxLife;
+          const alpha = k * k * 0.5 * s.intensity;
+          if (alpha <= 0.01) {
+            continue;
+          }
+          // 切伦科夫蓝：细长光迹从尾到头渐亮
+          ctx.strokeStyle = 'rgba(96, 196, 255, ' + alpha + ')';
+          ctx.lineWidth = s.width * k + 0.5;
+          ctx.lineCap = 'round';
+          ctx.beginPath();
+          ctx.moveTo(s.x - s.vx * 0.07, s.y - s.vy * 0.07);
+          ctx.lineTo(s.x, s.y);
+          ctx.stroke();
+        }
+        if (cherenkov.intensity > 0 || cherenkov.streaks.length) {
+          requestAnimationFrame(cherenkovTick);
+        } else {
+          cherenkov.running = false;
+          lastCherenkovTime = 0;
+          ctx.clearRect(0, 0, w, h);
+        }
+      }
+
+      // 根据当前 ★ 数量启停/更新辐射强度
+      function updateCherenkov() {
+        cherenkov.intensity = cherenkovIntensity();
+        if (cherenkov.intensity <= 0) {
+          cherenkov.streaks.length = 0;
+          if (cherenkov.running) {
+            cherenkov.running = false;
+            lastCherenkovTime = 0;
+            const w = gameEl.clientWidth || TOTAL_W;
+            const h = gameEl.clientHeight || TOTAL_H;
+            cherenkovCtx.clearRect(0, 0, w, h);
+          }
+          return;
+        }
+        sizeCherenkov();
+        if (!cherenkov.running) {
+          cherenkov.running = true;
+          lastCherenkovTime = 0;
+          requestAnimationFrame(cherenkovTick);
+        }
+      }
+
       // 只滑动、不合并（聚变合并交给聚变规则）
       function slideOnly(grid, direction) {
         const moves = [];
@@ -2391,7 +2461,6 @@
               inner.style.animationDuration = (FUSION_BURST_MS / 1000 * speedScale) + 's';
               // 粒子效果动画：瞬时结算时也播放，不阻塞玩家输入
               spawnFusionParticles(spot.q, spot.r, r.product);
-              addScore(r.product);
               // 合成出第一个人工元素（★）：解锁强化（每回合散热 3 + ★ 周围生成 H/D 燃料）
               if (!artificialUnlocked && ARTIFICIAL_VALUES.has(r.product)) {
                 artificialUnlocked = true;
@@ -2591,11 +2660,7 @@
         };
       })();
 
-      function handleMove(direction, fromAutoPlay = false) {
-        // 手动操作（点击/键盘/手势）时停止自动玩；自动玩触发的移动不打断自身
-        if (!fromAutoPlay) {
-          stopAutoPlay();
-        }
+      function handleMove(direction) {
         if (busy || gameEnded || (won && !overlayEl.classList.contains('hidden'))) {
           return;
         }
@@ -2675,12 +2740,6 @@
             // 级联结束：恢复粒子倍速、熄灭"正在反应"边框高亮
             fxTimeScale = 1;
             mapOutlineEl.classList.remove('reacting');
-            // 滚动窗口：只保留最近 AVG_WINDOW_MOVES 回合的聚变数
-            fusionCounts.push(fusedCount);
-            if (fusionCounts.length > AVG_WINDOW_MOVES) {
-              fusionCounts.shift();
-            }
-            updateAvgFusion();
             if (!exploded) {
               // 每回合自然冷却：基础散热（UI 可调）+ 每个 ★ 额外 1
               // （默认 1.5：0 个★ 降 1.5，1 个★ 降 2.5，2 个★ 降 3.5，依此类推）
@@ -2690,6 +2749,8 @@
               addRandomTile();
               // 人工元素强化：每回合在每个人工元素周围随机生成一个 H/D 燃料
               spawnFuelAroundArtificial();
+              // ★ 数量变化 → 更新切伦科夫辐射强度
+              updateCherenkov();
             }
             busy = false;
             setArrowsDisabled(false);
@@ -2828,54 +2889,6 @@
         showReaction = !showReaction;
         saveShowReaction();
         updateReactionBtn();
-      });
-
-      // 自动玩：每 AUTOPLAY_INTERVAL_MS 随机选一个方向移动（仅在空闲时执行）
-      function updateAutoPlayBtn() {
-        autoPlayBtn.textContent = autoPlay ? '自动玩：开' : '自动玩：关';
-        autoPlayBtn.classList.toggle('on', autoPlay);
-        autoPlayBtn.title = autoPlay
-          ? '自动随机移动中，点击停止'
-          : '自动随机选择方向移动，点击开启';
-      }
-      function startAutoPlay() {
-        if (autoPlay) {
-          return;
-        }
-        autoPlay = true;
-        updateAutoPlayBtn();
-        autoPlayTimer = window.setInterval(() => {
-          if (!autoPlay) {
-            return;
-          }
-          // 游戏结束（含胜利弹窗未继续时）自动停止
-          if (gameEnded || (won && !overlayEl.classList.contains('hidden'))) {
-            stopAutoPlay();
-            return;
-          }
-          if (!busy) {
-            handleMove(DIRS[Math.floor(Math.random() * DIRS.length)], true);
-          }
-        }, AUTOPLAY_INTERVAL_MS);
-      }
-      function stopAutoPlay() {
-        if (!autoPlay) {
-          return;
-        }
-        autoPlay = false;
-        if (autoPlayTimer !== null) {
-          window.clearInterval(autoPlayTimer);
-          autoPlayTimer = null;
-        }
-        updateAutoPlayBtn();
-      }
-      updateAutoPlayBtn();
-      autoPlayBtn.addEventListener('click', () => {
-        if (autoPlay) {
-          stopAutoPlay();
-        } else {
-          startAutoPlay();
-        }
       });
 
       // 散热率输入框：初始值 = 当前散热（持久化），提交后生效并保存
