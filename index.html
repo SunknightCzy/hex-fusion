@@ -2214,6 +2214,7 @@
       // 棋盘外露边（含朝外法线），供从边框向外放射粒子
       const cherenkov = {
         streaks: [],
+        particles: [],
         running: false,
         intensity: 0,
         weight: 0,
@@ -2404,7 +2405,31 @@
           ctx.lineTo(s.x, s.y);
           ctx.stroke();
         }
-        if (cherenkov.intensity > 0 || cherenkov.streaks.length || cherenkov.flare.active) {
+        // 超级★合并彩色粒子：向外迸发、渐隐
+        for (let i = cherenkov.particles.length - 1; i >= 0; i -= 1) {
+          const p = cherenkov.particles[i];
+          p.life += dt;
+          if (p.life >= p.maxLife) {
+            cherenkov.particles.splice(i, 1);
+            continue;
+          }
+          p.x += p.vx * dt;
+          p.y += p.vy * dt;
+          p.vx *= 0.96;
+          p.vy *= 0.96;
+          const k = 1 - p.life / p.maxLife;
+          ctx.save();
+          ctx.globalAlpha = k;
+          ctx.fillStyle = 'hsla(' + p.hue + ', 100%, 70%, ' + k + ')';
+          ctx.shadowColor = 'hsla(' + p.hue + ', 100%, 65%, ' + (k * 0.9) + ')';
+          ctx.shadowBlur = 8;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.size * k + 0.5, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        }
+        ctx.globalAlpha = 1;
+        if (cherenkov.intensity > 0 || cherenkov.streaks.length || cherenkov.flare.active || cherenkov.particles.length) {
           requestAnimationFrame(cherenkovTick);
         } else {
           cherenkov.running = false;
@@ -2413,26 +2438,44 @@
         }
       }
 
-      // 三颗★合并：边框爆发磁感线式多色曲线光效（数秒）+ 号角音效
-      function triggerCherenkovFlare() {
-        const edges = buildBoardEdges();
+      // 三颗★合并：光效自超级★生成位置向四周散发（磁感线式多色曲线 + 彩色粒子，数秒）
+      function triggerCherenkovFlare(q, r) {
+        const pt = hexToPixel(q, r);
+        const cx = CENTER_X + pt.x;
+        const cy = CENTER_Y + pt.y;
         const radius = cherenkov.radius || 360;
+        // 自超级★位置向 360° 散发的多色曲线射线（长度≈1.1~2.0 倍地图半径）
+        const rayCount = 28;
         const rays = [];
-        for (let i = 0; i < 28; i += 1) {
-          const e = edges[Math.floor(Math.random() * edges.length)];
-          const t = Math.random();
+        for (let i = 0; i < rayCount; i += 1) {
           rays.push({
-            x: e.ax + (e.bx - e.ax) * t,
-            y: e.ay + (e.by - e.ay) * t,
-            // 初始朝向带锥形散布；bend 决定曲线弯曲；长度接近地图半径、各不相同
-            angle: Math.atan2(e.ny, e.nx) + (Math.random() - 0.5) * 1.0,
+            x: cx,
+            y: cy,
+            angle: (i / rayCount) * Math.PI * 2 + (Math.random() - 0.5) * 0.4,
             bend: (Math.random() - 0.5) * 1.6,
-            len: radius * (0.7 + Math.random() * 0.5),
-            hue: (i / 28) * 360
+            len: radius * (1.1 + Math.random() * 0.9),
+            hue: (i / rayCount) * 360
+          });
+        }
+        // 彩色粒子：自超级★位置向外迸发
+        const particles = [];
+        for (let i = 0; i < 42; i += 1) {
+          const ang = Math.random() * Math.PI * 2;
+          const speed = 220 + Math.random() * 360;
+          particles.push({
+            x: cx,
+            y: cy,
+            vx: Math.cos(ang) * speed,
+            vy: Math.sin(ang) * speed,
+            hue: Math.random() * 360,
+            size: 1.5 + Math.random() * 2.5,
+            life: 0,
+            maxLife: 0.7 + Math.random() * 0.9
           });
         }
         cherenkov.flare = { active: true, t: 0, duration: 3, rays };
-        Sound.star();
+        cherenkov.particles = particles;
+        Sound.superstar();
         // 确保辐射循环在运行（此时至少 3★，权重≥3）
         updateCherenkov();
       }
@@ -2443,6 +2486,7 @@
         cherenkov.intensity = cherenkovIntensity();
         if (cherenkov.intensity <= 0) {
           cherenkov.streaks.length = 0;
+          cherenkov.particles.length = 0;
           if (cherenkov.running) {
             cherenkov.running = false;
             lastCherenkovTime = 0;
@@ -2663,7 +2707,7 @@
               const inner = tile.el.querySelector('.tile-inner');
               if (value === SUPER_STAR_VALUE) {
                 // 超级★：自带爆裂+多彩流动动画（.tile-star），不再叠加 tile-fusion
-                triggerCherenkovFlare();
+                triggerCherenkovFlare(spot.q, spot.r);
               } else {
                 inner.classList.add('tile-fusion');
                 // 级联加速：按本波倍速缩短爆裂动画时长（瞬时结算为 1 倍速）
@@ -2858,6 +2902,16 @@
             tone('sawtooth', 160, 36, 0.8, 0.14);
             tone('square', 90, 30, 0.9, 0.09, 0.05);
             noise(0.7, 0.1, 420);
+          },
+          superstar() {
+            // 超级★诞生：重低音冲击 + 明亮上行琶音 + 噪声爆发（带劲）
+            tone('sawtooth', 120, 45, 0.32, 0.2);
+            tone('square', 220, 110, 0.24, 0.12, 0.02);
+            noise(0.35, 0.14, 1000);
+            [660, 880, 1100, 1320].forEach((f, i) => {
+              tone('triangle', f, f * 1.05, 0.18, 0.11, 0.08 + i * 0.06);
+            });
+            tone('sine', 2093, 2637, 0.5, 0.05, 0.34);
           },
           win() {
             this.star();
