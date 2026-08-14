@@ -1,0 +1,2924 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>hex-fusion</title>
+  <style>
+    :root {
+      --cell-w: 104px;
+      --cell-h: 120px;
+      --hex-clip: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+      color-scheme: dark;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      min-height: 100dvh;
+      font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+      background: radial-gradient(circle at 50% 16%, #243561 0%, #141f3a 46%, #080d1a 100%);
+      color: #e8e3da;
+      overflow: hidden;
+      user-select: none;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+      background:
+        radial-gradient(1.4px 1.4px at 18% 28%, rgba(255, 255, 255, 0.85), transparent),
+        radial-gradient(1.2px 1.2px at 68% 16%, rgba(255, 255, 255, 0.6), transparent),
+        radial-gradient(1.4px 1.4px at 42% 64%, rgba(255, 255, 255, 0.7), transparent),
+        radial-gradient(1.1px 1.1px at 84% 54%, rgba(255, 255, 255, 0.5), transparent),
+        radial-gradient(1.3px 1.3px at 56% 84%, rgba(255, 255, 255, 0.6), transparent),
+        radial-gradient(1.1px 1.1px at 8% 76%, rgba(255, 255, 255, 0.45), transparent),
+        radial-gradient(1.2px 1.2px at 30% 92%, rgba(255, 255, 255, 0.5), transparent);
+    }
+
+    #app {
+      position: relative;
+      z-index: 1;
+      height: 100vh;
+      height: 100dvh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      padding: 12px 24px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .brand {
+      font-size: clamp(24px, 4vw, 34px);
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      color: #e8e3da;
+    }
+
+    .scores {
+      display: flex;
+      gap: 10px;
+    }
+
+    .score-box {
+      min-width: 92px;
+      background: rgba(255, 255, 255, 0.07);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      color: #f3eee4;
+      border-radius: 12px;
+      padding: 7px 12px 9px;
+      text-align: center;
+      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
+    }
+
+    .score-label {
+      display: block;
+      font-size: 11px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      opacity: 0.82;
+    }
+
+    .score-value {
+      display: block;
+      font-size: 22px;
+      font-weight: 800;
+      line-height: 1.1;
+    }
+
+    /* 热量盒：堆芯热量显示 */
+    .heat-box {
+      min-width: 74px;
+    }
+
+    .heat-box .score-value {
+      font-size: 15px;
+    }
+
+    .heat-box.heat-l0 {
+      border-color: rgba(90, 170, 220, 0.45);
+    }
+
+    .heat-box.heat-l1 {
+      border-color: rgba(230, 190, 90, 0.65);
+    }
+
+    .heat-box.heat-l2 {
+      border-color: rgba(255, 150, 70, 0.8);
+    }
+
+    .heat-box.heat-l3 {
+      border-color: rgba(255, 70, 60, 0.95);
+      box-shadow: 0 0 14px rgba(255, 70, 60, 0.55);
+    }
+
+    .heat-box.heat-pop .score-value {
+      animation: heat-pop 0.28s ease;
+    }
+
+    @keyframes heat-pop {
+      0% {
+        transform: scale(1);
+      }
+      40% {
+        transform: scale(1.16);
+      }
+      100% {
+        transform: scale(1);
+      }
+    }
+
+    button {
+      font: inherit;
+      border: 0;
+      cursor: pointer;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .new-game {
+      background: linear-gradient(180deg, #f0b35e, #e08e3c);
+      color: #2a1c08;
+      padding: 10px 18px;
+      border-radius: 12px;
+      font-weight: 700;
+      box-shadow: 0 5px 14px rgba(224, 142, 60, 0.4);
+      transition: background 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .new-game:hover {
+      background: linear-gradient(180deg, #f6c277, #ec9a47);
+      transform: translateY(-1px);
+    }
+
+    .new-game:active {
+      transform: translateY(1px);
+    }
+
+    /* 反应过程显示切换按钮 */
+    .toggle-reaction {
+      background: rgba(255, 255, 255, 0.10);
+      color: #e8e3da;
+      border: 1px solid rgba(173, 196, 255, 0.25);
+      padding: 10px 14px;
+      border-radius: 12px;
+      font-weight: 600;
+      box-shadow: 0 5px 14px rgba(0, 0, 0, 0.3);
+      transition: background 0.15s ease, transform 0.15s ease, opacity 0.15s ease;
+    }
+
+    .toggle-reaction:hover {
+      background: rgba(255, 255, 255, 0.17);
+    }
+
+    .toggle-reaction:active {
+      transform: translateY(1px);
+    }
+
+    /* 关闭反应过程显示：按钮置灰提示当前状态 */
+    .toggle-reaction.off {
+      opacity: 0.62;
+      border-color: rgba(255, 255, 255, 0.14);
+    }
+
+    /* 自动玩开关按钮 */
+    .auto-play {
+      background: rgba(255, 255, 255, 0.10);
+      color: #e8e3da;
+      border: 1px solid rgba(173, 196, 255, 0.25);
+      padding: 10px 14px;
+      border-radius: 12px;
+      font-weight: 600;
+      box-shadow: 0 5px 14px rgba(0, 0, 0, 0.3);
+      transition: background 0.15s ease, transform 0.15s ease, opacity 0.15s ease;
+    }
+
+    .auto-play:hover {
+      background: rgba(255, 255, 255, 0.17);
+    }
+
+    .auto-play:active {
+      transform: translateY(1px);
+    }
+
+    /* 自动玩开启：高亮提示正在运行 */
+    .auto-play.on {
+      background: rgba(120, 220, 170, 0.22);
+      border-color: rgba(120, 220, 170, 0.6);
+      color: #c9f5dd;
+    }
+
+    #mainRow {
+      flex: 1;
+      min-height: 0;
+      display: flex;
+      gap: 12px;
+      padding: 0 10px 10px;
+    }
+
+    #viewport {
+      flex: 1;
+      min-height: 0;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      padding: 8px;
+    }
+
+    /* 聚变信息栏（固定于视口底部；固定高度+内部滚动，棋盘尺寸不再随日志行数变化） */
+    #fusionBar {
+      position: absolute;
+      left: 50%;
+      bottom: 8px;
+      bottom: calc(8px + env(safe-area-inset-bottom));
+      transform: translateX(-50%);
+      width: min(92%, 640px);
+      height: 112px;
+      overflow-y: auto;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(173, 196, 255, 0.16);
+      border-radius: 14px;
+      padding: 10px 12px;
+      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
+      z-index: 5;
+    }
+
+    #fusionBar.hidden {
+      display: none;
+    }
+
+    .fp-title {
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: #9fb4e8;
+      margin-bottom: 12px;
+    }
+
+    .fp-log {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .fp-empty {
+      color: #7c8bb0;
+      font-size: 13px;
+      text-align: center;
+      padding: 14px 0;
+      line-height: 1.6;
+    }
+
+    .fp-item {
+      background: rgba(120, 160, 255, 0.10);
+      border: 1px solid rgba(173, 196, 255, 0.18);
+      border-radius: 10px;
+      padding: 8px 10px;
+      font-size: 13px;
+      line-height: 1.5;
+      color: #dfe6f5;
+      animation: fp-in 0.25s ease-out both;
+    }
+
+    @keyframes fp-in {
+      from {
+        opacity: 0;
+        transform: translateY(6px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .fp-atom {
+      color: #e8e3da;
+      font-weight: 600;
+    }
+
+    .fp-atom sup,
+    .fp-prod sup {
+      font-size: 0.6em;
+      font-weight: 700;
+      color: #9fb6e8;
+      margin-right: 1px;
+    }
+
+    .fp-plus {
+      color: #7c8bb0;
+      margin: 0 2px;
+    }
+
+    .fp-arrow {
+      color: #f2b35e;
+      font-weight: 800;
+      margin: 0 2px;
+    }
+
+    .fp-prod {
+      color: #4cc6ff;
+      font-weight: 800;
+    }
+
+    .fp-boom {
+      display: block;
+      text-align: center;
+      color: #ff6f42;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+    }
+
+    #game {
+      position: relative;
+      width: 840px;
+      height: 720px;
+      flex: 0 0 auto;
+    }
+
+    /* 旋转容器：整个棋盘（格子/棋子/轮廓/方向按钮）逆时针旋转 30°，
+       点顶六边形变为平顶，六个轴向正好对齐 QWEASD 键位簇 */
+    #boardWrap {
+      position: absolute;
+      inset: 0;
+      transform-origin: center center;
+    }
+
+    #board {
+      position: absolute;
+      inset: 0;
+      touch-action: none;
+    }
+
+    .cell,
+    .tile-inner {
+      clip-path: var(--hex-clip);
+    }
+
+    .cell {
+      position: absolute;
+      width: var(--cell-w);
+      height: var(--cell-h);
+      background: rgba(255, 255, 255, 0.045);
+      box-shadow: inset 0 0 0 1px rgba(173, 196, 255, 0.10),
+        inset 0 0 22px rgba(120, 160, 255, 0.07);
+    }
+
+    .tile {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: var(--cell-w);
+      height: var(--cell-h);
+      transition: transform 0.16s ease-in-out;
+      will-change: transform;
+      pointer-events: none;
+    }
+
+    .tile-inner {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      color: #776e65;
+      text-shadow: none;
+      box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.18),
+        0 6px 16px rgba(0, 0, 0, 0.35);
+    }
+
+    .tile-inner.tile-appear {
+      animation: pop-in 0.18s ease-out both;
+    }
+
+    /* 聚变产物：多段脉冲爆发（比普通合并更强烈，带辉光） */
+    .tile-inner.tile-fusion {
+      animation: fusion-burst 0.4s ease-out both;
+    }
+
+    /* 聚变参与原子：坍缩消融，被反应中心"吸走" */
+    .tile-inner.tile-implode {
+      animation: tile-implode 0.26s ease-in both;
+    }
+
+    @keyframes pop-in {
+      0% {
+        transform: scale(0);
+        opacity: 0;
+      }
+      70% {
+        transform: scale(1.08);
+        opacity: 1;
+      }
+      100% {
+        transform: scale(1);
+        opacity: 1;
+      }
+    }
+
+    @keyframes fusion-burst {
+      0% {
+        transform: scale(0.2);
+        opacity: 0;
+        filter: brightness(2.6);
+      }
+      30% {
+        transform: scale(1.3);
+        opacity: 1;
+        filter: brightness(1.9);
+      }
+      50% {
+        transform: scale(0.94);
+        filter: brightness(1.35);
+      }
+      70% {
+        transform: scale(1.12);
+        filter: brightness(1.12);
+      }
+      100% {
+        transform: scale(1);
+        opacity: 1;
+        filter: brightness(1);
+      }
+    }
+
+    @keyframes tile-implode {
+      0% {
+        transform: scale(1);
+        opacity: 1;
+        filter: brightness(1.6);
+      }
+      100% {
+        transform: scale(0);
+        opacity: 0;
+        filter: brightness(3);
+      }
+    }
+
+    .tile-1 {
+      background: linear-gradient(160deg, #eaf7fb, #c8e9f5);
+      color: #1f4e5e;
+      box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.12), 0 0 14px rgba(110, 190, 230, 0.35);
+    }
+
+    .tile-2 {
+      background: linear-gradient(160deg, #e3f2fb, #bfe0f2);
+      color: #27566e;
+      box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.12), 0 0 16px rgba(90, 170, 220, 0.4);
+    }
+
+    .tile-3 {
+      background: linear-gradient(160deg, #e7f8ee, #c4eccf);
+      color: #1f5c36;
+      box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.12), 0 0 14px rgba(120, 210, 150, 0.35);
+    }
+
+    .tile-4 {
+      background: linear-gradient(160deg, #fdf2cf, #f7e2a0);
+      color: #7a5a14;
+      box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.12), 0 0 16px rgba(230, 190, 90, 0.4);
+    }
+
+    .tile-8 {
+      background: linear-gradient(160deg, #ffc089, #f2914e);
+      color: #fff;
+      box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.18), 0 6px 18px rgba(242, 145, 78, 0.45);
+    }
+
+    .tile-16 {
+      background: linear-gradient(160deg, #ff9f6f, #f57a4f);
+      color: #fff;
+      box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.18), 0 6px 18px rgba(245, 122, 79, 0.45);
+    }
+
+    .tile-32 {
+      background: linear-gradient(160deg, #ff8366, #f25c3a);
+      color: #fff;
+      box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.18), 0 6px 20px rgba(242, 92, 58, 0.5);
+    }
+
+    .tile-64 {
+      background: linear-gradient(160deg, #ff6f42, #e84a23);
+      color: #fff;
+      box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.18), 0 6px 20px rgba(232, 74, 35, 0.5);
+    }
+
+    .tile-128 {
+      background: linear-gradient(160deg, #ffd879, #f2b33c);
+      color: #fff;
+      box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.18), 0 6px 22px rgba(242, 179, 60, 0.5);
+    }
+
+    .tile-256 {
+      background: linear-gradient(160deg, #ffd84d, #edb52e);
+      color: #fff;
+      box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.18), 0 6px 22px rgba(237, 181, 46, 0.5);
+    }
+
+    .tile-512 {
+      background: linear-gradient(160deg, #ffe06a, #e8b21f);
+      color: #3a2a05;
+      box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.18), 0 0 26px rgba(255, 200, 60, 0.6);
+    }
+
+    .tile-1024 {
+      background: linear-gradient(160deg, #c9a6ff, #a877f0);
+      color: #fff;
+      box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.18), 0 0 26px rgba(168, 119, 240, 0.55);
+    }
+
+    .tile-super {
+      background: linear-gradient(160deg, #8a7bff, #5b4bd6);
+      color: #fff;
+      box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.2), 0 0 28px rgba(120, 100, 240, 0.6);
+    }
+
+    .arrow {
+      position: absolute;
+      width: 58px;
+      height: 58px;
+      margin: -29px 0 0 -29px;
+      border-radius: 50%;
+      background: rgba(120, 150, 230, 0.92);
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 5px 14px rgba(80, 120, 220, 0.45);
+      transition: background 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
+      z-index: 3;
+    }
+
+    .arrow svg {
+      width: 30px;
+      height: 30px;
+      display: block;
+      transition: transform 0.15s ease;
+    }
+
+    .arrow:hover:not(:disabled) {
+      background: #9db4ee;
+      transform: scale(1.1);
+      box-shadow: 0 8px 20px rgba(120, 150, 230, 0.55);
+    }
+
+    .arrow:active:not(:disabled) {
+      transform: scale(0.96);
+    }
+
+    .arrow:disabled {
+      opacity: 0.55;
+      cursor: default;
+    }
+
+    .arrow:focus-visible {
+      outline: 3px solid #f2b179;
+      outline-offset: 3px;
+    }
+
+    #board.shake {
+      animation: board-shake 0.22s ease;
+    }
+
+    @keyframes board-shake {
+      0%,
+      100% {
+        transform: translateX(0);
+      }
+      25% {
+        transform: translateX(-5px);
+      }
+      50% {
+        transform: translateX(5px);
+      }
+      75% {
+        transform: translateX(-3px);
+      }
+    }
+
+    .el-symbol {
+      display: block;
+      font-size: 42px;
+      font-weight: 800;
+      letter-spacing: 0.02em;
+      line-height: 1;
+      text-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
+    }
+
+    .el-mass {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      font-size: 15px;
+      font-weight: 800;
+      line-height: 1;
+      letter-spacing: 0.01em;
+      opacity: 0.95;
+      text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+    }
+
+    /* 地图逆时针旋转 30° 后，原子文字反向回正，保持竖直（六边形形状仍倾斜） */
+    .el-symbol,
+    .el-mass {
+      transform: rotate(30deg);
+    }
+
+    #fx {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 5;
+    }
+
+    #supernova {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+      pointer-events: none;
+      z-index: 9999;
+      display: none;
+    }
+
+    #mapOutline {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 4;
+      overflow: visible;
+    }
+
+    #mapOutline path {
+      fill: none;
+      stroke: rgba(173, 196, 255, 0.6);
+      stroke-width: 1.4;
+      stroke-linejoin: round;
+      stroke-linecap: round;
+      filter: drop-shadow(0 0 4px rgba(120, 160, 255, 0.55));
+    }
+
+    /* 级联聚变进行中：地图边框变色并脉冲闪烁，提示"正在反应" */
+    #mapOutline.reacting path {
+      stroke: rgba(255, 170, 80, 0.95);
+      stroke-width: 2;
+      animation: outline-react 0.45s ease-in-out infinite;
+    }
+
+    @keyframes outline-react {
+      0%,
+      100% {
+        stroke-opacity: 0.4;
+        filter: drop-shadow(0 0 3px rgba(255, 150, 60, 0.4));
+      }
+      50% {
+        stroke-opacity: 1;
+        filter: drop-shadow(0 0 12px rgba(255, 150, 60, 1));
+      }
+    }
+
+    .overlay {
+      position: absolute;
+      inset: 0;
+      z-index: 20;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(8, 12, 24, 0.72);
+      backdrop-filter: blur(3px);
+    }
+
+    .overlay.hidden {
+      display: none;
+    }
+
+    .overlay-card {
+      min-width: 300px;
+      max-width: 90%;
+      background: rgba(18, 26, 46, 0.94);
+      border: 1px solid rgba(173, 196, 255, 0.18);
+      border-radius: 22px;
+      padding: 30px 28px 26px;
+      text-align: center;
+      box-shadow: 0 18px 50px rgba(0, 0, 0, 0.55);
+    }
+
+    .overlay-card h2 {
+      margin: 0 0 8px;
+      font-size: 38px;
+      color: #f3eee4;
+    }
+
+    .overlay-card p {
+      margin: 0 0 20px;
+      color: #b9c2d6;
+      line-height: 1.5;
+    }
+
+    .overlay-actions {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .overlay-actions button {
+      border-radius: 12px;
+      padding: 11px 16px;
+      font-weight: 700;
+      color: #fff;
+    }
+
+    .overlay-actions .primary {
+      background: linear-gradient(180deg, #f0b35e, #e08e3c);
+      color: #2a1c08;
+    }
+
+    .overlay-actions .secondary {
+      background: rgba(255, 255, 255, 0.12);
+      color: #e8e3da;
+    }
+
+    .overlay-actions button:hover {
+      filter: brightness(1.06);
+    }
+
+    @media (max-width: 540px) {
+      #fusionBar {
+        width: 96%;
+        height: 96px;
+        bottom: 6px;
+        padding: 8px 10px;
+      }
+
+      .el-mass {
+        font-size: 16px;
+        top: 22px;
+        left: 18px;
+      }
+
+      .topbar {
+        gap: 10px;
+        padding: 8px 10px;
+      }
+
+      .brand {
+        font-size: 24px;
+      }
+
+      .score-box {
+        min-width: 70px;
+        padding: 5px 8px 7px;
+      }
+
+      .score-value {
+        font-size: 18px;
+      }
+
+      .arrow {
+        width: 52px;
+        height: 52px;
+        margin: -26px 0 0 -26px;
+      }
+
+      .arrow svg {
+        width: 26px;
+        height: 26px;
+      }
+
+      .overlay-card h2 {
+        font-size: 30px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <header class="topbar">
+      <div class="brand">hex-fusion</div>
+      <div class="scores">
+        <div class="score-box">
+          <span class="score-label">Score</span>
+          <span class="score-value" id="score">0</span>
+        </div>
+        <div class="score-box">
+          <span class="score-label">Best</span>
+          <span class="score-value" id="best">0</span>
+        </div>
+        <div class="score-box heat-box" id="heatBox" title="堆芯热量：每次聚变 +1，每回合散热 -1.5（每个 ★ 再额外 -1），达到 16 失控（合成 ★ 后上限 32）">
+          <span class="score-label">🔥 热量</span>
+          <span class="score-value" id="heat">0</span>
+        </div>
+        <div class="score-box" title="最近 10 回合的平均聚变数（滚动窗口）">
+          <span class="score-label">平均聚变</span>
+          <span class="score-value" id="avgFusion">0</span>
+        </div>
+      </div>
+      <button class="auto-play" id="autoPlayBtn" type="button">自动玩：关</button>
+      <button class="toggle-reaction" id="toggleReactionBtn" type="button">反应过程：显示</button>
+      <button class="new-game" id="newGameBtn" type="button">新游戏</button>
+    </header>
+
+    <div id="mainRow">
+      <main id="viewport">
+        <div id="game">
+          <div id="boardWrap">
+            <div id="board"></div>
+            <svg id="mapOutline" viewBox="0 0 840 720" preserveAspectRatio="none"></svg>
+            <canvas id="fx"></canvas>
+            <div id="controls"></div>
+          </div>
+          <div id="overlay" class="overlay hidden">
+            <div class="overlay-card">
+              <h2 id="overlayTitle"></h2>
+              <p id="overlayText"></p>
+              <div class="overlay-actions">
+                <button class="primary" id="overlayNewGameBtn" type="button">新游戏</button>
+                <button class="secondary hidden" id="keepGoingBtn" type="button">Keep Going</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div id="fusionBar">
+          <div class="fp-title">上一步聚变</div>
+          <div id="fusionLog" class="fp-log"></div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <canvas id="supernova"></canvas>
+
+  <script>
+    (() => {
+      'use strict';
+
+      /*
+       * Hexagonal board model.
+       *
+       * Axial coordinates are (q, r). A radius-2 board contains the 19 cells
+       * satisfying -2 <= q <= 2, -2 <= r <= 2 and -2 <= q + r <= 2.
+       *
+       * The six movement directions are the six axial neighbor vectors.  For a
+       * direction d, cells on the same line parallel to d have the same
+       * cross(q,r,d) = q*dr - r*dq value.  Sorting a line by projection onto d
+       * gives the order from the far edge back toward the near edge, which is
+       * exactly the order needed by the 2048 slide/merge rule.
+       */
+      const SQRT3 = Math.sqrt(3);
+      const HEX_SIZE = 60;
+      const CELL_W = SQRT3 * HEX_SIZE;
+      const CELL_H = 2 * HEX_SIZE;
+      const RADIUS = 3;
+      const TOTAL_W = 840;
+      const TOTAL_H = 720;
+      const CENTER_X = TOTAL_W / 2;
+      const CENTER_Y = TOTAL_H / 2;
+      const ARROW_DIST = 420;
+      const MOVE_MS = 160;
+      // 级联聚变分步播放：两波之间的间隔（毫秒），留出上一波的爆裂/坍缩动画时间
+      const CASCADE_STEP_MS = 550;
+      // 同一步操作内多波级联聚变加速：第 1 波正常速度，之后每波动画倍速递增（间隔/时长 × CASCADE_SPEEDUP）
+      const CASCADE_SPEEDUP = 0.78;
+      // 级联加速后波间隔的下限（毫秒），避免后期波次过快失去可读性
+      const CASCADE_MIN_DELAY_MS = 150;
+      const BEST_KEY = 'hex2048.bestScore';
+      const SHOW_REACTION_KEY = 'hex2048.showReaction';
+      // "别炸了"模式：热量系统 —— 每次聚变 +1、达到上限堆芯失控。
+      // 每回合散热随棋盘上的 ★ 数量线性增加：基础 -1.5，每个 ★ 再额外 -1
+      // （0 个★ 降 1.5，1 个★ 降 2.5，2 个★ 降 3.5，依此类推）。
+      // 热度上限动态：合成 ★ 前为 16，合成出第一个人工元素（★）后提升到 32。
+      const HEAT_LIMIT_BASE = 16;
+      const HEAT_LIMIT_AFTER_ARTIFICIAL = 32;
+      const HEAT_COOL_PER_MOVE = 1.5;
+      const HEAT_COOL_PER_STAR = 1;
+      const HEAT_PER_FUSION = 1;
+      // 人工元素 = ★（999，人工合成超重核，游戏终点）
+      const ARTIFICIAL_VALUES = new Set([999]);
+
+      const DIRS = [
+        { name: 'E', q: 1, r: 0 },
+        { name: 'NE', q: 1, r: -1 },
+        { name: 'NW', q: 0, r: -1 },
+        { name: 'W', q: -1, r: 0 },
+        { name: 'SW', q: -1, r: 1 },
+        { name: 'SE', q: 0, r: 1 }
+      ];
+
+      const VALUE_CLASSES = {
+        1: 'tile-1',
+        2: 'tile-2',
+        3: 'tile-3',
+        4: 'tile-4',
+        12: 'tile-8',
+        16: 'tile-16',
+        20: 'tile-32',
+        24: 'tile-64',
+        28: 'tile-128',
+        56: 'tile-256',
+        197: 'tile-512',
+        238: 'tile-1024',
+        999: 'tile-super'
+      };
+
+      function makeRegularCells(radius) {
+        const cells = [];
+        for (let q = -radius; q <= radius; q += 1) {
+          for (let r = -radius; r <= radius; r += 1) {
+            if (Math.abs(q + r) <= radius) {
+              cells.push({ q, r });
+            }
+          }
+        }
+        return cells;
+      }
+
+      // 固定棋盘：半径 3 大图（37 格），聚变装置
+      const CELLS = makeRegularCells(3);
+
+      function key(q, r) {
+        return q + ',' + r;
+      }
+
+      function keyOf(cell) {
+        return key(cell.q, cell.r);
+      }
+
+      function hexToPixel(q, r) {
+        return {
+          x: SQRT3 * HEX_SIZE * (q + r / 2),
+          y: 1.5 * HEX_SIZE * r
+        };
+      }
+
+      function getLanes(direction) {
+        const lanes = new Map();
+
+        for (const cell of CELLS) {
+          const cross = cell.q * direction.r - cell.r * direction.q;
+          if (!lanes.has(cross)) {
+            lanes.set(cross, []);
+          }
+          lanes.get(cross).push(cell);
+        }
+
+        const ordered = [];
+        for (const cells of lanes.values()) {
+          cells.sort((a, b) => {
+            const projectionA = a.q * direction.q + a.r * direction.r;
+            const projectionB = b.q * direction.q + b.r * direction.r;
+            return projectionB - projectionA;
+          });
+          ordered.push(cells);
+        }
+
+        // Deterministic order is nice for debugging and tests.
+        ordered.sort((a, b) => {
+          const crossA = a[0].q * direction.r - a[0].r * direction.q;
+          const crossB = b[0].q * direction.r - b[0].r * direction.q;
+          return crossA - crossB;
+        });
+
+        return ordered;
+      }
+
+      /*
+       * Pure move calculation.  Returns null when the requested move changes
+       * nothing.  Otherwise returns single-tile moves, merges, the score gained
+       * from merges, and the largest value produced by a merge.
+       */
+      function computeMove(grid, direction) {
+        const moves = [];
+        const merges = [];
+        let scoreGain = 0;
+        let maxMerged = 0;
+
+        for (const lane of getLanes(direction)) {
+          // 不规则地图的巷道可能有缺口：按连续段分别滑动，缺口即墙
+          const segments = [];
+          let seg = [];
+          for (let i = 0; i < lane.length; i += 1) {
+            if (seg.length === 0) {
+              seg.push(lane[i]);
+              continue;
+            }
+            const prev = seg[seg.length - 1];
+            const cur = lane[i];
+            // 巷道按投影降序(远→近)排列,相邻格相差 -d
+            if (cur.q - prev.q === -direction.q && cur.r - prev.r === -direction.r) {
+              seg.push(cur);
+            } else {
+              segments.push(seg);
+              seg = [cur];
+            }
+          }
+          if (seg.length) {
+            segments.push(seg);
+          }
+
+          for (const laneSeg of segments) {
+            const compact = [];
+            for (const cell of laneSeg) {
+              const tile = grid.get(keyOf(cell));
+              if (tile) {
+                compact.push(tile);
+              }
+            }
+
+            if (compact.length === 0) {
+              continue;
+            }
+
+            // Standard 2048 merge rule: equal adjacent values merge pairwise,
+            // left/right or near/far, with each tile participating at most once.
+            const outputs = [];
+            let index = 0;
+            while (index < compact.length) {
+              const current = compact[index];
+              if (
+                index + 1 < compact.length &&
+                compact[index + 1].value === current.value
+              ) {
+                const value = current.value * 2;
+                outputs.push({
+                  value,
+                  tiles: [current, compact[index + 1]],
+                  merge: true
+                });
+                scoreGain += value;
+                maxMerged = Math.max(maxMerged, value);
+                index += 2;
+              } else {
+                outputs.push({
+                  value: current.value,
+                  tiles: [current],
+                  merge: false
+                });
+                index += 1;
+              }
+            }
+
+            // Compacted outputs occupy the farthest cells in the lane segment.
+            for (let outputIndex = 0; outputIndex < outputs.length; outputIndex += 1) {
+              const output = outputs[outputIndex];
+              const target = laneSeg[outputIndex];
+
+              if (output.merge) {
+                merges.push({
+                  toQ: target.q,
+                  toR: target.r,
+                  value: output.value,
+                  tiles: output.tiles
+                });
+              } else {
+                const tile = output.tiles[0];
+                const fromQ = tile.q;
+                const fromR = tile.r;
+                if (fromQ !== target.q || fromR !== target.r) {
+                  moves.push({
+                    tile,
+                    fromQ,
+                    fromR,
+                    toQ: target.q,
+                    toR: target.r
+                  });
+                }
+              }
+            }
+          }
+        }
+
+        if (moves.length === 0 && merges.length === 0) {
+          return null;
+        }
+
+        return { moves, merges, scoreGain, maxMerged };
+      }
+
+      function hasAnyMove(grid) {
+        for (const direction of DIRS) {
+          if (computeMove(grid, direction)) {
+            return true;
+          }
+        }
+        return false;
+      }
+
+      // ---------- "别炸了"模式：人工聚变装置中的核合成链 ----------
+      // needs: {元素值(质量数): 需要的个数}；中心格 + 六邻格内凑齐即可反应。
+      // 设定：玩家在人工聚变装置中轰击核素（数值 = 同位素质量数）。
+      // 逐条对应真实核反应（与恒星核合成同源的物理过程）：
+      //   聚变链（轻核聚变，均为真实核反应）：
+      //     ¹H+¹H → ²H+e⁺+ν        pp-I 链第一步
+      //     ²H+¹H → ³He+γ          pp-I 链第二步
+      //     ³He+³He → ⁴He+2¹H      pp-I 链闭合（释放两个质子，副产品已实现）
+      //     3×⁴He → ¹²C+γ          三α 过程
+      //     ¹²C+⁴He → ¹⁶O+γ        α 俘获
+      //     ¹⁶O+⁴He → ²⁰Ne+γ       α 俘获
+      //     ²⁰Ne+⁴He → ²⁴Mg+γ      α 俘获
+      //     ²⁴Mg+⁴He → ²⁸Si+γ      α 俘获
+      //     2×²⁸Si → ⁵⁶Ni → ⁵⁶Fe   硅燃烧；⁵⁶Ni 双 β⁺ 衰变成 ⁵⁶Fe（产物按 Fe 显示）
+      //   中子俘获（人工轰击：铁峰之后不靠两两聚变，用快中子轰击种子核，即现实中
+      //   超新星 r 过程的实验室对应）：
+      //     铁种子 + 快中子束 → Au-197 → U-238，游戏以同格多核反应抽象表达
+      //   2×U-238 → ★ 为游戏终点（人工合成超重核 ★），属游戏设定
+      const FUSION_RECIPES = [
+        { needs: { 1: 2 }, product: 2 },                                  // ¹H+¹H → ²H（pp链）
+        { needs: { 2: 1, 1: 1 }, product: 3 },                            // ²H+¹H → ³He
+        { needs: { 3: 2 }, product: 4, byproducts: [1, 1] },              // ³He+³He → ⁴He+2¹H（pp链闭合）
+        { needs: { 4: 3 }, product: 12 },                                 // 3×⁴He → ¹²C（三α）
+        { needs: { 12: 1, 4: 1 }, product: 16 },                          // ¹²C+⁴He → ¹⁶O
+        { needs: { 16: 1, 4: 1 }, product: 20 },                          // ¹⁶O+⁴He → ²⁰Ne
+        { needs: { 20: 1, 4: 1 }, product: 24 },                          // ²⁰Ne+⁴He → ²⁴Mg
+        { needs: { 24: 1, 4: 1 }, product: 28 },                          // ²⁴Mg+⁴He → ²⁸Si
+        { needs: { 28: 2 }, product: 56 },                                // 2×²⁸Si → ⁵⁶Fe（硅燃烧）
+        { needs: { 56: 2 }, product: 197 },                               // 铁种子 + 中子暴 → Au-197
+        { needs: { 197: 1, 56: 1 }, product: 238 },                       // 中子俘获 → U-238
+        { needs: { 238: 2 }, product: 999 }                               // 2×U-238 → ★（游戏终点）
+      ];
+
+      // 参与聚变的原子必须彼此六邻连通（真正的"接触"），
+      // 不能只是同时落在某个中心格的 7 格范围内却隔空不相邻（会误触发）。
+      function tilesConnected(tiles) {
+        if (tiles.length <= 1) {
+          return true;
+        }
+        const pos = new Map();
+        for (const t of tiles) {
+          pos.set(keyOf(t), t);
+        }
+        const visited = new Set([tiles[0].id]);
+        const stack = [tiles[0]];
+        while (stack.length) {
+          const cur = stack.pop();
+          for (const d of DIRS) {
+            const n = pos.get(key(cur.q + d.q, cur.r + d.r));
+            if (n && !visited.has(n.id)) {
+              visited.add(n.id);
+              stack.push(n);
+            }
+          }
+        }
+        return visited.size === tiles.length;
+      }
+
+      function findFusionReactions(grid, cells = CELLS) {
+        const reactions = [];
+        const cellSet = new Set(cells.map(keyOf));
+        for (const center of cells) {
+          const around = [center];
+          for (const d of DIRS) {
+            const n = { q: center.q + d.q, r: center.r + d.r };
+            if (cellSet.has(keyOf(n))) {
+              around.push(n);
+            }
+          }
+          const centerTile = grid.get(keyOf(center));
+          const counts = {};
+          for (const c of around) {
+            const t = grid.get(keyOf(c));
+            if (t) {
+              counts[t.value] = (counts[t.value] || 0) + 1;
+            }
+          }
+          for (const recipe of FUSION_RECIPES) {
+            let ok = true;
+            for (const v in recipe.needs) {
+              if ((counts[v] || 0) < recipe.needs[v]) {
+                ok = false;
+                break;
+              }
+            }
+            if (!ok) {
+              continue;
+            }
+            // 中心格若已被非配方元素占据 → 产物没地方落，换别的中心再试
+            if (centerTile && !(recipe.needs[centerTile.value] > 0)) {
+              continue;
+            }
+            const need = Object.assign({}, recipe.needs);
+            const tiles = [];
+            for (const c of around) {
+              const t = grid.get(keyOf(c));
+              if (t && need[t.value] > 0) {
+                tiles.push(t);
+                need[t.value] -= 1;
+              }
+            }
+            if (tiles.length >= 2 && !tilesConnected(tiles)) {
+              continue;
+            }
+            reactions.push({
+              center,
+              recipe,
+              tiles,
+              product: recipe.product,
+              byproducts: recipe.byproducts || []
+            });
+            break;
+          }
+        }
+        return reactions;
+      }
+
+      // 一波内同时发生的聚变（互不抢原子）。
+      // 先按「同一批原子」去重：同一物理聚变会被多个中心格重复报告，
+      // 若不合并，互斥贪心会白白浪费选择次数，把 3 个独立反应误算成 2 个。
+      // 再用回溯精确求最大互不重叠反应集（候选数量小，可接受）。
+      function computeFusionWave(grid, cells = CELLS) {
+        const seen = new Map();
+        for (const r of findFusionReactions(grid, cells)) {
+          const key = r.tiles.map((t) => t.id).sort((a, b) => a - b).join(',');
+          if (!seen.has(key)) {
+            seen.set(key, r);
+          }
+        }
+        const candidates = [...seen.values()];
+        candidates.sort((a, b) => a.tiles.length - b.tiles.length);
+
+        const n = candidates.length;
+        const conflict = Array.from({ length: n }, () => []);
+        const idSetCache = candidates.map((r) => new Set(r.tiles.map((t) => t.id)));
+        for (let i = 0; i < n; i += 1) {
+          for (let j = i + 1; j < n; j += 1) {
+            let overlaps = false;
+            for (const t of candidates[j].tiles) {
+              if (idSetCache[i].has(t.id)) {
+                overlaps = true;
+                break;
+              }
+            }
+            if (overlaps) {
+              conflict[i].push(j);
+              conflict[j].push(i);
+            }
+          }
+        }
+
+        let best = [];
+        const chosen = [];
+        function bt(start) {
+          if (chosen.length > best.length) {
+            best = chosen.slice();
+          }
+          // 剪枝：即便把后面全部选上也超不过当前最优
+          if (chosen.length + (n - start) <= best.length) {
+            return;
+          }
+          for (let i = start; i < n; i += 1) {
+            if (chosen.some((j) => conflict[i].includes(j))) {
+              continue;
+            }
+            chosen.push(i);
+            bt(i + 1);
+            chosen.pop();
+          }
+        }
+        bt(0);
+        return best.map((i) => candidates[i]);
+      }
+
+      // Expose pure logic for the verification harness, without requiring a DOM.
+      if (typeof globalThis !== 'undefined') {
+        globalThis.__hex2048Test = {
+          RADIUS,
+          CELLS,
+          DIRS,
+          getLanes,
+          computeMove,
+          hasAnyMove,
+          key,
+          keyOf,
+          FUSION_RECIPES,
+          findFusionReactions,
+          computeFusionWave,
+          makeRegularCells,
+          findEmptyNeighbor
+        };
+      }
+
+      if (typeof document === 'undefined' || !document.getElementById('board')) {
+        return;
+      }
+
+      const boardEl = document.getElementById('board');
+      const boardWrapEl = document.getElementById('boardWrap');
+      const mapOutlineEl = document.getElementById('mapOutline');
+      const gameEl = document.getElementById('game');
+      const controlsEl = document.getElementById('controls');
+      const scoreEl = document.getElementById('score');
+      const bestEl = document.getElementById('best');
+      const heatBoxEl = document.getElementById('heatBox');
+      const heatEl = document.getElementById('heat');
+      const avgFusionEl = document.getElementById('avgFusion');
+      const viewportEl = document.getElementById('viewport');
+      const overlayEl = document.getElementById('overlay');
+      const overlayTitleEl = document.getElementById('overlayTitle');
+      const overlayTextEl = document.getElementById('overlayText');
+      const overlayNewGameBtn = document.getElementById('overlayNewGameBtn');
+      const keepGoingBtn = document.getElementById('keepGoingBtn');
+      const newGameBtn = document.getElementById('newGameBtn');
+      const toggleReactionBtn = document.getElementById('toggleReactionBtn');
+      const autoPlayBtn = document.getElementById('autoPlayBtn');
+      const fusionBarEl = document.getElementById('fusionBar');
+      const fxCanvas = document.getElementById('fx');
+      const fxCtx = fxCanvas.getContext('2d');
+
+      // 精细同位素链（数值 = 质量数）
+      const NE_ELEMENT_BY_VALUE = {
+        1: 'H', 2: 'D', 3: 'He', 4: 'He', 12: 'C', 16: 'O', 20: 'Ne',
+        24: 'Mg', 28: 'Si', 56: 'Fe', 197: 'Au', 238: 'U', 999: '★'
+      };
+
+      // "别炸了"模式：数值 → 相对原子质量（整数取质量数, 单位 u）
+      const NE_ATOMIC_MASS_BY_VALUE = {
+        1: '1',        // ¹H
+        2: '2',        // ²H（氘）
+        3: '3',        // ³He
+        4: '4',        // ⁴He
+        12: '12',      // ¹²C
+        16: '16',      // ¹⁶O
+        20: '20',      // ²⁰Ne
+        24: '24',      // ²⁴Mg
+        28: '28',      // ²⁸Si
+        56: '56',      // ⁵⁶Fe
+        197: '197',    // ¹⁹⁷Au
+        238: '238',    // ²³⁸U
+        999: '∞'       // 人工合成超重核 ★
+      };
+
+      // 当前模式下的元素符号 / 相对原子质量
+      function elementSymbol(value) {
+        return NE_ELEMENT_BY_VALUE[value] || '';
+      }
+      function atomicMass(value) {
+        return NE_ATOMIC_MASS_BY_VALUE[value] || '';
+      }
+
+      // 聚变反应粒子表（按合并目标值；依据真实核过程抽象）
+      const FUSION_FX = {
+        2: { emit: ['e+', 'nu', 'gam'] },                        // H+H→D pp链:正电子+中微子+伽马
+        3: { emit: ['e+', 'nu', 'gam'] },                        // D+H→He³
+        4: { emit: ['p', 'p', 'gam'] },                          // He³+He³→He⁴+2H: 放出两个质子+伽马
+        12: { emit: ['gam', 'gam', 'gam'] },                     // 3α→C¹²
+        16: { emit: ['gam'], absorb: ['alp'] },                  // C+He→O α俘获成氧:吸收α、放伽马
+        20: { emit: ['alp', 'p'] },                              // O+He→Ne 氧燃烧:出α+质子
+        24: { emit: ['alp'] },                                   // Ne+He→Mg 氖燃烧光致蜕变:出α
+        28: { emit: ['alp', 'gam'] },                            // Mg+He→Si
+        56: { emit: ['n', 'gam', 'gam'] },                       // Si+Si→Fe 硅燃烧:中子+伽马
+        197: { emit: ['n', 'n', 'nu', 'gam'], supernova: true }, // 铁种子 r过程→Au: 中子+中微子暴
+        238: { emit: ['n', 'gam'] },                             // 重元素继续中子俘获
+        999: { emit: ['gam', 'gam', 'gam'] }
+      };
+      const PARTICLE_COUNTS = { alp: 6, p: 7, n: 7, 'e+': 5, nu: 12, gam: 4 };
+
+      let grid = new Map();
+      let tileSeq = 0;
+      let score = 0;
+      let best = loadBest();
+      // 是否显示聚变反应过程动画（关闭后瞬间结算，无动画/无边框提示）
+      let showReaction = loadShowReaction();
+      let busy = false;
+      let won = false;
+      let gameEnded = false;
+      let moveToken = 0;
+      // "别炸了"模式：堆芯热量（聚变+1 / 回合散热 / 到当前热度上限堆芯失控）
+      let heat = 0;
+      // 是否已合成出第一个人工元素（★）：解锁后热度上限提升到 30，
+      // 且每回合在每个 ★ 周围随机生成一个 H/D 燃料（散热按 ★ 数量线性叠加）
+      let artificialUnlocked = false;
+      // 最近一步滑动内发生的聚变反应（用于右侧"上一步聚变"提示）
+      let fusionHistory = [];
+      // 每回合平均聚变统计：只统计最近 AVG_WINDOW_MOVES 回合内的平均聚变数（滚动窗口）
+      const AVG_WINDOW_MOVES = 10;
+      let fusionCounts = [];
+      // 自动玩：定时随机选择方向移动
+      let autoPlay = false;
+      let autoPlayTimer = null;
+      const AUTOPLAY_INTERVAL_MS = 600;
+
+      function loadShowReaction() {
+        try {
+          return localStorage.getItem(SHOW_REACTION_KEY) !== '0';
+        } catch (_) {
+          return true;
+        }
+      }
+
+      function saveShowReaction() {
+        try {
+          localStorage.setItem(SHOW_REACTION_KEY, showReaction ? '1' : '0');
+        } catch (_) {
+          // localStorage may be unavailable in privacy-restricted contexts.
+        }
+      }
+
+      function loadBest() {
+        try {
+          const value = Number.parseInt(localStorage.getItem(BEST_KEY) || '0', 10);
+          return Number.isFinite(value) && value > 0 ? value : 0;
+        } catch (_) {
+          return 0;
+        }
+      }
+
+      function saveBest() {
+        try {
+          localStorage.setItem(BEST_KEY, String(best));
+        } catch (_) {
+          // localStorage may be unavailable in privacy-restricted contexts.
+        }
+      }
+
+      function tileValueClass(value) {
+        return VALUE_CLASSES[value] || 'tile-super';
+      }
+
+      function makeTileElement(tile) {
+        const tileEl = document.createElement('div');
+        tileEl.className = 'tile';
+        tileEl.style.width = CELL_W + 'px';
+        tileEl.style.height = CELL_H + 'px';
+
+        const inner = document.createElement('div');
+        inner.className = 'tile-inner ' + tileValueClass(tile.value);
+
+        const symbolEl = document.createElement('span');
+        symbolEl.className = 'el-symbol';
+        symbolEl.textContent = elementSymbol(tile.value);
+        inner.appendChild(symbolEl);
+
+        // 原子左上角标注相对原子质量（元素卡片样式）
+        const massEl = document.createElement('span');
+        massEl.className = 'el-mass';
+        massEl.textContent = atomicMass(tile.value);
+        inner.appendChild(massEl);
+
+        tileEl.appendChild(inner);
+        setTileTransform(tileEl, tile.q, tile.r);
+        boardEl.appendChild(tileEl);
+        return tileEl;
+      }
+
+      function setTileTransform(tileEl, q, r) {
+        const point = hexToPixel(q, r);
+        tileEl.style.transform =
+          'translate(' +
+          (CENTER_X + point.x - CELL_W / 2) +
+          'px, ' +
+          (CENTER_Y + point.y - CELL_H / 2) +
+          'px)';
+      }
+
+      function positionCell(cellEl, q, r) {
+        const point = hexToPixel(q, r);
+        cellEl.style.left = CENTER_X + point.x - CELL_W / 2 + 'px';
+        cellEl.style.top = CENTER_Y + point.y - CELL_H / 2 + 'px';
+      }
+
+      function createTile(value, q, r, animate) {
+        const tile = {
+          id: ++tileSeq,
+          value,
+          q,
+          r,
+          el: null
+        };
+        grid.set(key(q, r), tile);
+        tile.el = makeTileElement(tile);
+        if (animate) {
+          tile.el.querySelector('.tile-inner').classList.add('tile-appear');
+        }
+        return tile;
+      }
+
+      // 正在播放"坍缩"动画、延迟移除的原子 DOM（重开新局时强制清理）
+      const lingeringTiles = [];
+      const IMPLODE_MS = 260;
+      // 聚变产物爆裂动画时长（毫秒）：最后一波播完即可解锁输入，不再多等整段波间隔
+      const FUSION_BURST_MS = 400;
+
+      function removeTileElement(tile) {
+        if (tile.el && tile.el.parentNode) {
+          tile.el.parentNode.removeChild(tile.el);
+        }
+        tile.el = null;
+      }
+
+      function clearBoard() {
+        for (const el of lingeringTiles) {
+          if (el.parentNode) {
+            el.parentNode.removeChild(el);
+          }
+        }
+        lingeringTiles.length = 0;
+        for (const tile of grid.values()) {
+          removeTileElement(tile);
+        }
+        grid.clear();
+      }
+
+      function drawMapOutline() {
+        const svg = document.getElementById('mapOutline');
+        svg.setAttribute('viewBox', '0 0 ' + TOTAL_W + ' ' + TOTAL_H);
+        while (svg.firstChild) {
+          svg.removeChild(svg.firstChild);
+        }
+        const hw = CELL_W / 2;
+        const hh = CELL_H / 2;
+        // 六角格相对中心的六个角（与 clip-path 多边形一致）
+        const rel = [
+          [0, -hh], [hw, -hh / 2], [hw, hh / 2],
+          [0, hh], [-hw, hh / 2], [-hw, -hh / 2]
+        ];
+        // 边 i 对应的邻居方向（DIRS 索引）：由边中点方向匹配得到
+        const edgeForDir = [1, 0, 5, 4, 3, 2];
+        const margin = 6;
+        const cx = CENTER_X;
+        const cy = CENTER_Y;
+        const cellSet = new Set(CELLS.map(keyOf));
+        const seg = [];
+        for (const cell of CELLS) {
+          const p = hexToPixel(cell.q, cell.r);
+          const px = cx + p.x;
+          const py = cy + p.y;
+          for (let k = 0; k < 6; k += 1) {
+            const nb = DIRS[k];
+            if (!cellSet.has(key(cell.q + nb.q, cell.r + nb.r))) {
+              const ei = edgeForDir[k];
+              const a = rel[ei];
+              const b = rel[(ei + 1) % 6];
+              const A = expandPoint(px + a[0], py + a[1], cx, cy, margin);
+              const B = expandPoint(px + b[0], py + b[1], cx, cy, margin);
+              seg.push('M' + A.x.toFixed(1) + ' ' + A.y.toFixed(1) +
+                'L' + B.x.toFixed(1) + ' ' + B.y.toFixed(1));
+            }
+          }
+        }
+        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        path.setAttribute('d', seg.join(' '));
+        svg.appendChild(path);
+      }
+
+      function expandPoint(x, y, cx, cy, m) {
+        const dx = x - cx;
+        const dy = y - cy;
+        const len = Math.hypot(dx, dy) || 1;
+        return { x: x + (dx / len) * m, y: y + (dy / len) * m };
+      }
+
+      function buildBoardCells() {
+        boardEl.querySelectorAll('.cell').forEach((el) => el.remove());
+        for (const cell of CELLS) {
+          const cellEl = document.createElement('div');
+          cellEl.className = 'cell';
+          positionCell(cellEl, cell.q, cell.r);
+          boardEl.appendChild(cellEl);
+        }
+        drawMapOutline();
+      }
+
+      function arrowIcon() {
+        const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        svg.setAttribute('viewBox', '0 0 24 24');
+        svg.setAttribute('aria-hidden', 'true');
+        // 单箭头（→ 样式）：简洁指向移动方向
+        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        path.setAttribute('d', 'M4 12h16M14 6l6 6-6 6');
+        path.setAttribute('fill', 'none');
+        path.setAttribute('stroke', 'currentColor');
+        path.setAttribute('stroke-width', '3');
+        path.setAttribute('stroke-linecap', 'round');
+        path.setAttribute('stroke-linejoin', 'round');
+        svg.appendChild(path);
+        return svg;
+      }
+
+      function buildArrowButtons() {
+        controlsEl.textContent = '';
+        DIRS.forEach((direction, index) => {
+          const vector = hexToPixel(direction.q, direction.r);
+          const length = Math.hypot(vector.x, vector.y);
+          const dx = (vector.x / length) * ARROW_DIST;
+          const dy = (vector.y / length) * ARROW_DIST;
+          const angle = (Math.atan2(dy, dx) * 180) / Math.PI;
+
+          const button = document.createElement('button');
+          button.type = 'button';
+          button.className = 'arrow';
+          button.dataset.direction = direction.name;
+          button.setAttribute('aria-label', 'Move ' + direction.name);
+          button.title = 'Move ' + direction.name;
+          button.style.left = CENTER_X + dx + 'px';
+          button.style.top = CENTER_Y + dy + 'px';
+
+          const icon = arrowIcon();
+          icon.style.transform = 'rotate(' + angle + 'deg)';
+          button.appendChild(icon);
+          button.addEventListener('click', () => handleMove(direction));
+          controlsEl.appendChild(button);
+        });
+      }
+
+      function setArrowsDisabled(disabled) {
+        controlsEl.querySelectorAll('.arrow').forEach((button) => {
+          button.disabled = disabled;
+        });
+      }
+
+      function randomEmptyCell() {
+        const empty = CELLS.filter((cell) => !grid.has(keyOf(cell)));
+        if (empty.length === 0) {
+          return null;
+        }
+        return empty[Math.floor(Math.random() * empty.length)];
+      }
+
+      function addRandomTile() {
+        const cell = randomEmptyCell();
+        if (!cell) {
+          return null;
+        }
+        // 刷 H/D（1/2，质量数）
+        const value = Math.random() < 0.9 ? 1 : 2;
+        return createTile(value, cell.q, cell.r, true);
+      }
+
+      // 棋盘上 ★（人工元素）的数量：决定每回合额外散热与燃料生成
+      function countArtificial() {
+        let n = 0;
+        for (const tile of grid.values()) {
+          if (ARTIFICIAL_VALUES.has(tile.value)) {
+            n += 1;
+          }
+        }
+        return n;
+      }
+
+      // 人工元素强化：每回合在每个 ★ 周围随机空位生成一个 H 或 D 燃料；
+      // 多个 ★ 的候选空位互不重叠（同回合内）
+      function spawnFuelAroundArtificial() {
+        if (!artificialUnlocked) {
+          return;
+        }
+        const taken = new Set();
+        for (const tile of grid.values()) {
+          if (!ARTIFICIAL_VALUES.has(tile.value)) {
+            continue;
+          }
+          const candidates = [];
+          for (const d of DIRS) {
+            const q = tile.q + d.q;
+            const r = tile.r + d.r;
+            const k = key(q, r);
+            if (CELLS.some((c) => c.q === q && c.r === r) && !grid.has(k) && !taken.has(k)) {
+              candidates.push({ q, r });
+            }
+          }
+          if (candidates.length === 0) {
+            continue;
+          }
+          const spot = candidates[Math.floor(Math.random() * candidates.length)];
+          taken.add(key(spot.q, spot.r));
+          const value = Math.random() < 0.9 ? 1 : 2;
+          createTile(value, spot.q, spot.r, true);
+        }
+      }
+
+      function startNewGame() {
+        // 级联聚变动画期间锁定外界输入（触屏、点击等），不响应"新游戏"
+        if (busy) {
+          return;
+        }
+        moveToken += 1;
+        clearBoard();
+        score = 0;
+        busy = false;
+        won = false;
+        gameEnded = false;
+        fusionHistory = [];
+        heat = 0;
+        artificialUnlocked = false;
+        fusionCounts = [];
+        // 清理级联聚变遗留的"正在反应"边框高亮与粒子倍速
+        mapOutlineEl.classList.remove('reacting');
+        fxTimeScale = 1;
+        // 手动开新局：停止自动玩
+        stopAutoPlay();
+        updateHeatTitle();
+        updateAvgFusion();
+        updateHeatUI(false);
+        renderFusionLog();
+        updateScore();
+        hideOverlay();
+        setArrowsDisabled(false);
+
+        addRandomTile();
+        addRandomTile();
+      }
+
+      function updateScore() {
+        scoreEl.textContent = String(score);
+        if (score > best) {
+          best = score;
+          saveBest();
+        }
+        bestEl.textContent = String(best);
+      }
+
+      function addScore(amount) {
+        if (!amount) {
+          return;
+        }
+        score += amount;
+        updateScore();
+      }
+
+      // 每回合平均聚变数 = 最近 AVG_WINDOW_MOVES 回合聚变数之和 ÷ 窗口内回合数（保留一位小数）
+      function updateAvgFusion() {
+        const total = fusionCounts.reduce((sum, n) => sum + n, 0);
+        avgFusionEl.textContent =
+          fusionCounts.length > 0 ? (total / fusionCounts.length).toFixed(1) : '0';
+      }
+
+      // ---------- 聚变粒子特效 ----------
+      const fx = [];
+      let fxRunning = false;
+      // 级联加速时粒子特效的倍速（>1 更快）；寿命缩短 + 速度提高，飞行距离不变
+      let fxTimeScale = 1;
+      // 上一帧时间戳：按真实流逝时间推进（后台切回时残留粒子快速走完，不堆积）
+      let lastFxTime = 0;
+
+      // 按当前倍速缩放粒子的寿命与速度（倍速=1 时为无操作）
+      function fxSpeed(p) {
+        if (fxTimeScale !== 1) {
+          p.maxLife /= fxTimeScale;
+          p.vx *= fxTimeScale;
+          p.vy *= fxTimeScale;
+        }
+        return p;
+      }
+
+      function fxDot(ctx, x, y, r, fill) {
+        ctx.beginPath();
+        ctx.arc(x, y, r, 0, Math.PI * 2);
+        ctx.fillStyle = fill;
+        ctx.fill();
+      }
+
+      function fxSpawn(x, y, type, absorb) {
+        const angle = Math.random() * Math.PI * 2;
+        const p = {
+          x, y, type, absorb,
+          life: 0,
+          maxLife: absorb ? 0.4 : 0.6 + Math.random() * 0.35
+        };
+        if (absorb) {
+          p.vx = -Math.cos(angle) * 320;
+          p.vy = -Math.sin(angle) * 320;
+          p.x += Math.cos(angle) * 48;
+          p.y += Math.sin(angle) * 48;
+        } else {
+          const speed = 130 + Math.random() * 220;
+          p.vx = Math.cos(angle) * speed;
+          p.vy = Math.sin(angle) * speed;
+        }
+        fx.push(fxSpeed(p));
+      }
+
+      // 内聚粒子：从参与原子位置飞向反应中心（聚变"吸聚"感）
+      function fxInward(x, y, cx, cy) {
+        const dx = cx - x;
+        const dy = cy - y;
+        const len = Math.hypot(dx, dy) || 1;
+        const speed = 460 + Math.random() * 180;
+        fx.push(fxSpeed({
+          x,
+          y,
+          type: 'gam',
+          absorb: false,
+          vx: (dx / len) * speed,
+          vy: (dy / len) * speed,
+          life: 0,
+          maxLife: 0.24 + Math.random() * 0.12
+        }));
+      }
+
+      function spawnFusionParticles(q, r, value) {
+        const fxDef = FUSION_FX[value] || { emit: ['n', 'gam'] };
+        const pt = hexToPixel(q, r);
+        const cx = CENTER_X + pt.x;
+        const cy = CENTER_Y + pt.y;
+        (fxDef.emit || []).forEach((type) => {
+          for (let i = 0; i < (PARTICLE_COUNTS[type] || 2); i += 1) {
+            fxSpawn(cx, cy, type, false);
+          }
+        });
+        (fxDef.absorb || []).forEach((type) => {
+          for (let i = 0; i < (PARTICLE_COUNTS[type] || 2); i += 1) {
+            fxSpawn(cx, cy, type, true);
+          }
+        });
+        if (fxDef.supernova) {
+          // 以 Au（197）产物棋子为中心触发超新星（从全屏中心改为 Au 所在位置）
+          const prodTile = grid.get(key(q, r));
+          let snCx;
+          let snCy;
+          if (prodTile && prodTile.el) {
+            const rect = prodTile.el.getBoundingClientRect();
+            snCx = rect.left + rect.width / 2;
+            snCy = rect.top + rect.height / 2;
+          } else {
+            snCx = window.innerWidth / 2;
+            snCy = window.innerHeight / 2;
+          }
+          triggerSupernova('nova', snCx, snCy);
+        }
+        const ring = fxDef.supernova ? 160 : 44;
+        fx.push(fxSpeed({ x: cx, y: cy, type: 'flash', absorb: false, life: 0, maxLife: 0.45, ring }));
+        if (!fxDef.supernova) {
+          // 第二道冲击波：更大一圈的淡金光环，增强聚变爆发感
+          fx.push(fxSpeed({ x: cx, y: cy, type: 'flash', absorb: false, life: 0.1, maxLife: 0.52, ring: ring * 1.9 }));
+        }
+        startFx();
+      }
+
+      function fxGlow(ctx, color, blur) {
+        ctx.shadowColor = color;
+        ctx.shadowBlur = blur;
+      }
+
+      function drawParticle(ctx, p) {
+        const k = 1 - p.life / p.maxLife;
+        ctx.globalAlpha = Math.min(1, k * 1.15);
+        if (p.type === 'flash') {
+          const rad = p.ring * (1 - k) + 4;
+          fxGlow(ctx, 'rgba(255,220,120,1)', 18);
+          ctx.fillStyle = 'rgba(255,214,120,' + (k * 0.55) + ')';
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, rad, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.strokeStyle = 'rgba(255,246,180,0.95)';
+          ctx.lineWidth = 3.5;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, rad, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.shadowBlur = 0;
+          ctx.globalAlpha = 1;
+          return;
+        }
+        if (p.type === 'alp') {
+          fxGlow(ctx, '#ff5722', 12);
+          fxDot(ctx, p.x, p.y, 5, '#ff5722');
+          fxDot(ctx, p.x, p.y, 2, '#fff3e0');
+        } else if (p.type === 'p') {
+          fxGlow(ctx, '#29b6f6', 10);
+          fxDot(ctx, p.x, p.y, 3.6, '#4fc3f7');
+          fxDot(ctx, p.x, p.y, 1.4, '#e1f5fe');
+        } else if (p.type === 'n') {
+          fxGlow(ctx, '#90a4ae', 8);
+          fxDot(ctx, p.x, p.y, 3.6, '#b0bec5');
+        } else if (p.type === 'e+') {
+          fxGlow(ctx, '#ffd54f', 10);
+          fxDot(ctx, p.x, p.y, 2.8, '#ffd54f');
+          fxDot(ctx, p.x, p.y, 1.1, '#fffde7');
+        } else if (p.type === 'nu') {
+          fxGlow(ctx, '#ffffff', 6);
+          ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(p.x - p.vx * 0.09, p.y - p.vy * 0.09);
+          ctx.lineTo(p.x, p.y);
+          ctx.stroke();
+        } else if (p.type === 'gam') {
+          fxGlow(ctx, '#ffe082', 12);
+          fxDot(ctx, p.x, p.y, 3, '#ffe082');
+          ctx.strokeStyle = 'rgba(255,236,120,0.95)';
+          ctx.lineWidth = 2.6;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, (1 - k) * 24 + 3, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+        ctx.shadowBlur = 0;
+        ctx.globalAlpha = 1;
+      }
+
+      function fxTick(now) {
+        const ctx = fxCtx;
+        const w = gameEl.clientWidth || TOTAL_W;
+        const h = gameEl.clientHeight || TOTAL_H;
+        ctx.clearRect(0, 0, w, h);
+        // 真实流逝时间推进（上限 1/30）：标签页隐藏时 rAF 暂停，
+        // 切回后粒子按此步长快速走完/过期，不会积压成批同时播放
+        const dt = lastFxTime ? Math.min(1 / 30, (now - lastFxTime) / 1000) : 1 / 60;
+        lastFxTime = now;
+        for (let i = fx.length - 1; i >= 0; i -= 1) {
+          const p = fx[i];
+          p.life += dt;
+          if (p.life >= p.maxLife) {
+            fx.splice(i, 1);
+            continue;
+          }
+          if (p.type !== 'flash') {
+            p.x += p.vx * dt;
+            p.y += p.vy * dt;
+            p.vx *= 0.88;
+            p.vy *= 0.88;
+          }
+          drawParticle(ctx, p);
+        }
+        if (fx.length) {
+          requestAnimationFrame(fxTick);
+        } else {
+          fxRunning = false;
+          lastFxTime = 0;
+          ctx.clearRect(0, 0, w, h);
+        }
+      }
+
+      function startFx() {
+        // 播放前按当前布局重校画布（重进页面后 DPR/尺寸可能已变化）
+        sizeFx();
+        if (fxRunning) return;
+        fxRunning = true;
+        lastFxTime = 0;
+        requestAnimationFrame(fxTick);
+      }
+
+      function sizeFx() {
+        // 画布尺寸跟随 #game（粒子坐标空间）；布局未就绪时回退到设计尺寸，
+        // 避免重进页面（bfcache 还原/切回标签页）时按 0 尺寸缩放导致特效变小/移位
+        const dpr = window.devicePixelRatio || 1;
+        const w = gameEl.clientWidth || TOTAL_W;
+        const h = gameEl.clientHeight || TOTAL_H;
+        fxCanvas.width = Math.round(w * dpr);
+        fxCanvas.height = Math.round(h * dpr);
+        fxCanvas.style.width = w + 'px';
+        fxCanvas.style.height = h + 'px';
+        fxCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      }
+
+      // ---------- 超新星合成庆典特效（人工轰击合成重元素时，以 Au 为中心爆发） ----------
+      const snCanvas = document.getElementById('supernova');
+      const snCtx = snCanvas.getContext('2d');
+      const sn = { active: false, t: 0, duration: 1.5, ringDelays: [], debris: [], tone: 'nova', cx: 0, cy: 0 };
+      // 上一帧时间戳：超新星按真实流逝时间推进（后台切回时快速播完）
+      let lastSnTime = 0;
+
+      function sizeSupernova() {
+        // 每次播放前按当前视口与 DPR 重新校准，避免重进页面后画布缩放/位移异常
+        const dpr = window.devicePixelRatio || 1;
+        const w = window.innerWidth || 1;
+        const h = window.innerHeight || 1;
+        snCanvas.width = Math.round(w * dpr);
+        snCanvas.height = Math.round(h * dpr);
+        snCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      }
+
+      // tone: 'nova'=轰击合成突破（成功合成重元素，金色，以 Au 为中心）；
+      //       'boom'=堆芯热量失控（游戏失败，红色，以屏幕中心为爆心）
+      function triggerSupernova(tone, cx, cy) {
+        sizeSupernova();
+        const first = !sn.active;
+        sn.active = true;
+        sn.t = 0;
+        lastSnTime = 0;
+        sn.tone = tone === 'boom' ? 'boom' : 'nova';
+        Sound[sn.tone === 'boom' ? 'boom' : 'star']();
+        snCanvas.style.display = 'block';
+        sn.cx = Number.isFinite(cx) ? cx : window.innerWidth / 2;
+        sn.cy = Number.isFinite(cy) ? cy : window.innerHeight / 2;
+        sn.ringDelays = [0, 0.16, 0.34];
+        sn.debris = [];
+        const hueA = sn.tone === 'boom' ? '#ff8a70' : '#fff3d0';
+        const hueB = sn.tone === 'boom' ? '#ffd9c0' : '#ffb74d';
+        for (let i = 0; i < 150; i += 1) {
+          const ang = Math.random() * Math.PI * 2;
+          const speed = 300 + Math.random() * 640;
+          sn.debris.push({
+            x: sn.cx,
+            y: sn.cy,
+            vx: Math.cos(ang) * speed,
+            vy: Math.sin(ang) * speed,
+            size: 1.5 + Math.random() * 3,
+            hue: Math.random() < 0.5 ? hueA : hueB,
+            life: 0,
+            maxLife: 0.6 + Math.random() * 0.7
+          });
+        }
+        if (first) {
+          requestAnimationFrame(supernovaTick);
+        }
+      }
+
+      function supernovaTick(now) {
+        const ctx = snCtx;
+        const w = window.innerWidth;
+        const h = window.innerHeight;
+        ctx.clearRect(0, 0, w, h);
+        const cx = sn.cx;
+        const cy = sn.cy;
+        // 真实流逝时间推进（上限 1/30）：后台切回后超新星快速播完，不残留冻结画面
+        const dt = lastSnTime ? Math.min(1 / 30, (now - lastSnTime) / 1000) : 1 / 60;
+        lastSnTime = now;
+        sn.t += dt;
+        // 冲击波半径按"中心到最远视口角"实时计算，保证始终铺满全屏
+        // （不依赖触发瞬间的窗口尺寸，缩放/位移异常可自愈）
+        const maxR = Math.hypot(Math.max(cx, w - cx), Math.max(cy, h - cy));
+
+        // 全屏柔光闪白：以 Au 为爆心的径向渐变，向外渐隐
+        const flashA = Math.max(0, 0.92 * (1 - sn.t / 0.42));
+        if (flashA > 0.001) {
+          const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, maxR);
+          grad.addColorStop(0, sn.tone === 'boom' ? 'rgba(255,96,60,' + flashA + ')' : 'rgba(255,250,235,' + flashA + ')');
+          grad.addColorStop(1, 'rgba(0,0,0,0)');
+          ctx.fillStyle = grad;
+          ctx.fillRect(0, 0, w, h);
+        }
+
+        for (let i = 0; i < sn.ringDelays.length; i += 1) {
+          const rt = (sn.t - sn.ringDelays[i]) / (sn.duration - sn.ringDelays[i]);
+          if (rt < 0 || rt > 1) {
+            continue;
+          }
+          const rad = maxR * Math.sqrt(rt);
+          const a = (1 - rt) * 0.85;
+          ctx.save();
+          ctx.shadowColor = sn.tone === 'boom' ? 'rgba(255,110,70,0.95)' : 'rgba(255,214,140,0.95)';
+          ctx.shadowBlur = 32;
+          ctx.strokeStyle = sn.tone === 'boom' ? 'rgba(255,150,110,' + a + ')' : 'rgba(255,236,170,' + a + ')';
+          ctx.lineWidth = (16 - i * 4) * (1 - rt) + 2;
+          ctx.beginPath();
+          ctx.arc(cx, cy, rad, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.restore();
+        }
+
+        for (let i = sn.debris.length - 1; i >= 0; i -= 1) {
+          const d = sn.debris[i];
+          d.life += dt;
+          if (d.life >= d.maxLife) {
+            sn.debris.splice(i, 1);
+            continue;
+          }
+          d.x += d.vx * dt;
+          d.y += d.vy * dt;
+          d.vx *= 0.95;
+          d.vy *= 0.95;
+          const a = 1 - d.life / d.maxLife;
+          ctx.save();
+          ctx.shadowColor = d.hue;
+          ctx.shadowBlur = 14;
+          ctx.globalAlpha = a;
+          ctx.fillStyle = d.hue;
+          ctx.beginPath();
+          ctx.arc(d.x, d.y, d.size, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        }
+
+        if (sn.t < sn.duration || sn.debris.length) {
+          requestAnimationFrame(supernovaTick);
+        } else {
+          sn.active = false;
+          snCanvas.style.display = 'none';
+          ctx.clearRect(0, 0, w, h);
+        }
+      }
+
+      // 只滑动、不合并（聚变合并交给聚变规则）
+      function slideOnly(grid, direction) {
+        const moves = [];
+        for (const lane of getLanes(direction)) {
+          const segments = [];
+          let seg = [];
+          for (let i = 0; i < lane.length; i += 1) {
+            if (seg.length === 0) {
+              seg.push(lane[i]);
+              continue;
+            }
+            const prev = seg[seg.length - 1];
+            const cur = lane[i];
+            if (cur.q - prev.q === -direction.q && cur.r - prev.r === -direction.r) {
+              seg.push(cur);
+            } else {
+              segments.push(seg);
+              seg = [cur];
+            }
+          }
+          if (seg.length) {
+            segments.push(seg);
+          }
+          for (const laneSeg of segments) {
+            const compact = [];
+            for (const cell of laneSeg) {
+              const tile = grid.get(keyOf(cell));
+              if (tile) {
+                compact.push(tile);
+              }
+            }
+            for (let i = 0; i < compact.length; i += 1) {
+              const target = laneSeg[i];
+              const tile = compact[i];
+              if (tile.q !== target.q || tile.r !== target.r) {
+                moves.push({ tile, fromQ: tile.q, fromR: tile.r, toQ: target.q, toR: target.r });
+              }
+            }
+          }
+        }
+        return moves.length ? moves : null;
+      }
+
+      function applyMoves(moves) {
+        for (const move of moves) {
+          grid.delete(key(move.fromQ, move.fromR));
+        }
+        for (const move of moves) {
+          grid.set(key(move.toQ, move.toR), move.tile);
+          move.tile.q = move.toQ;
+          move.tile.r = move.toR;
+          setTileTransform(move.tile.el, move.toQ, move.toR);
+        }
+      }
+
+      // 找中心格周围第一个空位（放置多原子反应的副产物）
+      function findEmptyNeighbor(grid, center) {
+        for (const d of DIRS) {
+          const q = center.q + d.q;
+          const r = center.r + d.r;
+          if (CELLS.some((c) => c.q === q && c.r === r) && !grid.has(key(q, r))) {
+            return { q, r };
+          }
+        }
+        return null;
+      }
+
+      function applyFusionWave(wave, speedScale = 1, instant = false) {
+        // 级联加速：本波粒子特效按同一倍速播放（倍速>1 时更快）；瞬时结算不加速
+        fxTimeScale = instant ? 1 : 1 / speedScale;
+        const consumed = new Set();
+        for (const r of wave) {
+          for (const t of r.tiles) {
+            consumed.add(t.id);
+          }
+        }
+        const doomed = [];
+        for (const tile of grid.values()) {
+          if (consumed.has(tile.id)) {
+            doomed.push(tile);
+          }
+        }
+        for (const tile of doomed) {
+          grid.delete(key(tile.q, tile.r));
+        }
+        if (instant) {
+          // 不显示反应过程：直接移除参与原子，不做坍缩棋子动画；
+          // 但保留粒子效果动画（内聚粒子），且不阻塞玩家输入
+          for (const tile of doomed) {
+            removeTileElement(tile);
+          }
+          for (const r of wave) {
+            const cc = hexToPixel(r.center.q, r.center.r);
+            const ccx = CENTER_X + cc.x;
+            const ccy = CENTER_Y + cc.y;
+            for (const t of r.tiles) {
+              if (!t.el) {
+                continue;
+              }
+              const pt = hexToPixel(t.q, t.r);
+              for (let i = 0; i < 5; i += 1) {
+                fxInward(
+                  CENTER_X + pt.x + (Math.random() - 0.5) * 34,
+                  CENTER_Y + pt.y + (Math.random() - 0.5) * 34,
+                  ccx,
+                  ccy
+                );
+              }
+            }
+          }
+          startFx();
+        } else {
+          // 聚变坍缩动画：参与原子收缩消融（延迟移除），粒子向各自反应中心内聚
+          for (const r of wave) {
+            const cc = hexToPixel(r.center.q, r.center.r);
+            const ccx = CENTER_X + cc.x;
+            const ccy = CENTER_Y + cc.y;
+            for (const t of r.tiles) {
+              if (!t.el) {
+                continue;
+              }
+              const inner = t.el.querySelector('.tile-inner');
+              inner.classList.add('tile-implode');
+              // 级联加速：按本波倍速缩短坍缩动画时长
+              inner.style.animationDuration = (IMPLODE_MS / 1000 * speedScale) + 's';
+              lingeringTiles.push(t.el);
+              const pt = hexToPixel(t.q, t.r);
+              for (let i = 0; i < 5; i += 1) {
+                fxInward(
+                  CENTER_X + pt.x + (Math.random() - 0.5) * 34,
+                  CENTER_Y + pt.y + (Math.random() - 0.5) * 34,
+                  ccx,
+                  ccy
+                );
+              }
+              window.setTimeout(() => {
+                const idx = lingeringTiles.indexOf(t.el);
+                if (idx >= 0) {
+                  lingeringTiles.splice(idx, 1);
+                }
+                removeTileElement(t);
+              }, IMPLODE_MS * speedScale);
+            }
+          }
+          startFx();
+        }
+        // 本波所有反应的参与原子位置，供多余副产物避让
+        const taken = new Set();
+        for (const r of wave) {
+          for (const t of r.tiles) {
+            taken.add(key(t.q, t.r));
+          }
+        }
+        for (const r of wave) {
+          // 参与原子按 从左到右、从上到下 排序（像素坐标 x 优先，再 y）
+          const spots = r.tiles.slice().sort((a, b) => {
+            const pa = hexToPixel(a.q, a.r);
+            const pb = hexToPixel(b.q, b.r);
+            return pa.x - pb.x || pa.y - pb.y;
+          });
+          // 新原子序列：主产物 + 副产物，依次占据原位置
+          const atoms = [r.product, ...(r.byproducts || [])];
+          atoms.forEach((value, i) => {
+            let spot;
+            if (i < spots.length) {
+              spot = { q: spots[i].q, r: spots[i].r };
+            } else {
+              // 产物多于参与原子（如 He³+He³→He⁴+2H）：中心附近空位
+              for (const d of DIRS) {
+                const c = { q: r.center.q + d.q, r: r.center.r + d.r };
+                const k = key(c.q, c.r);
+                if (CELLS.some((cc) => cc.q === c.q && cc.r === c.r) && !grid.has(k) && !taken.has(k)) {
+                  spot = c;
+                  break;
+                }
+              }
+            }
+            if (!spot) {
+              return;
+            }
+            taken.add(key(spot.q, spot.r));
+            // 产物原子生成动画：瞬时结算（不显示反应过程）时同样保留，不阻塞玩家输入
+            const tile = createTile(value, spot.q, spot.r, i >= spots.length);
+            if (i === 0) {
+              const inner = tile.el.querySelector('.tile-inner');
+              inner.classList.add('tile-fusion');
+              // 级联加速：按本波倍速缩短爆裂动画时长（瞬时结算为 1 倍速）
+              inner.style.animationDuration = (FUSION_BURST_MS / 1000 * speedScale) + 's';
+              // 粒子效果动画：瞬时结算时也播放，不阻塞玩家输入
+              spawnFusionParticles(spot.q, spot.r, r.product);
+              addScore(r.product);
+              // 合成出第一个人工元素（★）：解锁强化（每回合散热 3 + ★ 周围生成 H/D 燃料）
+              if (!artificialUnlocked && ARTIFICIAL_VALUES.has(r.product)) {
+                artificialUnlocked = true;
+                updateHeatTitle();
+              }
+            }
+          });
+          fusionHistory.push(describeReactionHtml(r));
+        }
+        renderFusionLog();
+      }
+
+      // 聚变反应描述："¹H + ¹H → ²H"、"³He + ³He → ⁴He + ¹H + ¹H"（质量数作左上角标，整数）
+      function massTag(value) {
+        if (value === 999) {
+          return ''; // ★ 为游戏终点，不标质量
+        }
+        return '<sup>' + value + '</sup>';
+      }
+      function describeReactionHtml(r) {
+        const needs = r.recipe.needs;
+        const parts = [];
+        for (const v in needs) {
+          const nv = Number(v);
+          const n = Number(needs[v]);
+          const sym = elementSymbol(nv) || v;
+          parts.push('<span class="fp-atom">' + (n > 1 ? n + ' × ' : '') + massTag(nv) + sym + '</span>');
+        }
+        let prod = (elementSymbol(r.product) || r.product);
+        if (massTag(r.product)) {
+          prod = massTag(r.product) + prod;
+        }
+        for (const bv of r.byproducts || []) {
+          const b = Number(bv);
+          prod += ' + ' + massTag(b) + (elementSymbol(b) || b);
+        }
+        return parts.join('<span class="fp-plus">+</span>') +
+          '<span class="fp-arrow">→</span><span class="fp-prod">' + prod + '</span>';
+      }
+
+      // 当前热度上限：合成出第一个人工元素（★）后由 16 提升到 32
+      function currentHeatLimit() {
+        return artificialUnlocked ? HEAT_LIMIT_AFTER_ARTIFICIAL : HEAT_LIMIT_BASE;
+      }
+
+      // 热量框提示：散热按 ★ 数量线性叠加；合成出第一个人工元素（★）后上限提升
+      function updateHeatTitle() {
+        heatBoxEl.title = artificialUnlocked
+          ? '堆芯热量：每次聚变 +1，每回合散热 -1.5（每个 ★ 再额外 -1），达到 ' + HEAT_LIMIT_AFTER_ARTIFICIAL + ' 失控'
+          : '堆芯热量：每次聚变 +1，每回合散热 -1.5（每个 ★ 再额外 -1），达到 ' + HEAT_LIMIT_BASE + ' 失控（合成 ★ 后上限提升至 ' + HEAT_LIMIT_AFTER_ARTIFICIAL + '）';
+      }
+
+      // 更新热量显示与危险等级（animate=true 时数字跳动一下）
+      function updateHeatUI(animate) {
+        // 冷却值（1.3/1.6 等）在二进制中不精确，累加会带出长串小数，显示前四舍五入到一位小数
+        const lim = currentHeatLimit();
+        heatEl.textContent = Math.round(heat * 10) / 10 + '/' + lim;
+        heatBoxEl.classList.remove('heat-l0', 'heat-l1', 'heat-l2', 'heat-l3');
+        // 等级阈值按当前上限比例划分，上限提升（合成 ★ 后 10→30）自动适配
+        const lvl = heat >= lim * 0.85 ? 3 : heat >= lim * 0.55 ? 2 : heat >= lim * 0.3 ? 1 : 0;
+        heatBoxEl.classList.add('heat-l' + lvl);
+        heatBoxEl.classList.remove('heat-pop');
+        if (animate) {
+          void heatBoxEl.offsetWidth;
+          heatBoxEl.classList.add('heat-pop');
+        }
+      }
+
+      // 渲染"上一步聚变"信息（棋盘/按钮下方）
+      function renderFusionLog() {
+        const logEl = document.getElementById('fusionLog');
+        logEl.textContent = '';
+        if (fusionHistory.length === 0) {
+          const empty = document.createElement('div');
+          empty.className = 'fp-empty';
+          empty.textContent = '暂无聚变';
+          logEl.appendChild(empty);
+          return;
+        }
+        for (const html of fusionHistory) {
+          const item = document.createElement('div');
+          item.className = 'fp-item';
+          item.innerHTML = html;
+          logEl.appendChild(item);
+        }
+        // 聚变栏高度已固定，棋盘尺寸不随日志行数变化，无需重新 fitGame
+      }
+
+      // ---------- 音效（Web Audio 合成，无外部资源） ----------
+      const Sound = (() => {
+        let ctx = null;
+        function ensure() {
+          if (!ctx) {
+            const AC = window.AudioContext || window.webkitAudioContext;
+            if (!AC) {
+              return null;
+            }
+            ctx = new AC();
+          }
+          if (ctx.state === 'suspended') {
+            ctx.resume().catch(() => {});
+          }
+          return ctx;
+        }
+        // 单音：f0→f1 频率滑音，包络淡入淡出
+        function tone(type, f0, f1, dur, vol, delay) {
+          const c = ensure();
+          if (!c) {
+            return;
+          }
+          const t0 = c.currentTime + (delay || 0);
+          const osc = c.createOscillator();
+          const gain = c.createGain();
+          osc.type = type;
+          osc.frequency.setValueAtTime(f0, t0);
+          if (f1 && f1 !== f0) {
+            osc.frequency.exponentialRampToValueAtTime(f1, t0 + dur);
+          }
+          gain.gain.setValueAtTime(0.0001, t0);
+          gain.gain.exponentialRampToValueAtTime(vol, t0 + 0.012);
+          gain.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+          osc.connect(gain);
+          gain.connect(c.destination);
+          osc.start(t0);
+          osc.stop(t0 + dur + 0.05);
+        }
+        // 噪声（滤波后作"气流/轰响"）
+        function noise(dur, vol, freq) {
+          const c = ensure();
+          if (!c) {
+            return;
+          }
+          const t0 = c.currentTime;
+          const len = Math.max(1, Math.floor(c.sampleRate * dur));
+          const buf = c.createBuffer(1, len, c.sampleRate);
+          const data = buf.getChannelData(0);
+          for (let i = 0; i < len; i += 1) {
+            data[i] = (Math.random() * 2 - 1) * (1 - i / len);
+          }
+          const src = c.createBufferSource();
+          src.buffer = buf;
+          const flt = c.createBiquadFilter();
+          flt.type = 'lowpass';
+          flt.frequency.value = freq || 900;
+          const gain = c.createGain();
+          gain.gain.setValueAtTime(vol, t0);
+          gain.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+          src.connect(flt);
+          flt.connect(gain);
+          gain.connect(c.destination);
+          src.start(t0);
+        }
+        return {
+          unlock() {
+            ensure();
+          },
+          move() {
+            // 滑动：轻柔短促的气流
+            noise(0.09, 0.05, 700);
+            tone('sine', 240, 180, 0.09, 0.045);
+          },
+          invalid() {
+            // 无效滑动：低闷一声
+            tone('triangle', 150, 110, 0.12, 0.06);
+          },
+          fusion() {
+            // 聚变：明亮上行双音 + 高频闪烁
+            tone('triangle', 520, 660, 0.09, 0.07);
+            tone('sine', 780, 1040, 0.12, 0.05, 0.03);
+            tone('sine', 1560, 2080, 0.14, 0.025, 0.06);
+          },
+          star() {
+            // 合成重元素：金色号角上行琶音 + 长泛音
+            [523, 659, 784, 1047].forEach((f, i) => {
+              tone('triangle', f, f * 1.02, 0.3, 0.08, i * 0.07);
+            });
+            tone('sine', 2093, 2093, 0.6, 0.03, 0.3);
+          },
+          boom() {
+            // 堆芯失控：低频轰鸣 + 爆裂噪声
+            tone('sawtooth', 160, 36, 0.8, 0.14);
+            tone('square', 90, 30, 0.9, 0.09, 0.05);
+            noise(0.7, 0.1, 420);
+          },
+          win() {
+            this.star();
+          },
+          lose() {
+            // 游戏结束：下行小调
+            [523, 440, 349, 262].forEach((f, i) => {
+              tone('triangle', f, f * 0.99, 0.25, 0.07, i * 0.09);
+            });
+          }
+        };
+      })();
+
+      function handleMove(direction, fromAutoPlay = false) {
+        // 手动操作（点击/键盘/手势）时停止自动玩；自动玩触发的移动不打断自身
+        if (!fromAutoPlay) {
+          stopAutoPlay();
+        }
+        if (busy || gameEnded || (won && !overlayEl.classList.contains('hidden'))) {
+          return;
+        }
+        const moves = slideOnly(grid, direction);
+        if (!moves) {
+          shakeBoard();
+          Sound.invalid();
+          return;
+        }
+        Sound.move();
+        busy = true;
+        setArrowsDisabled(true);
+        const token = moveToken;
+        fusionHistory = [];
+        applyMoves(moves);
+        window.setTimeout(() => {
+          if (token !== moveToken) {
+            return;
+          }
+          let exploded = false;
+          let fusedCount = 0;
+          // 级联聚变：一波一波分步播放动画，期间 busy 保持 true，
+          // 触屏、点击、键盘等外界输入一律不响应
+          // 同一步操作内多波加速：第 1 波正常速度，后续每波逐渐加快
+          // （波间隔缩短 + 爆裂/坍缩/粒子动画倍速）
+          // 等待优化：每波应用后预计算下一波 —— 最后一波动画播完立即解锁输入，
+          // 不再多等一个整段波间隔；仅多波级联时才点亮"正在反应"边框
+          let waveIndex = 0;
+          const step = (wave) => {
+            if (token !== moveToken) {
+              return;
+            }
+            if (document.hidden) {
+              // 标签页隐藏：暂停级联（后台定时器被节流，恢复可见后再继续，避免动画积压成批播放）
+              window.setTimeout(() => step(wave), 200);
+              return;
+            }
+            if (!wave) {
+              wave = computeFusionWave(grid);
+            }
+            if (wave.length === 0) {
+              finish();
+              return;
+            }
+            // 第 1 波 speedScale=1（正常速度），之后每波 ×CASCADE_SPEEDUP 逐渐加快
+            const speedScale = Math.pow(CASCADE_SPEEDUP, waveIndex);
+            // 先应用这一波（反应可视化），每次聚变 +1 热量；达到上限即堆芯失控
+            applyFusionWave(wave, speedScale);
+            if (fusedCount === 0) {
+              Sound.fusion();
+            }
+            fusedCount += wave.length;
+            heat += wave.length * HEAT_PER_FUSION;
+            updateHeatUI(true);
+            if (heat >= currentHeatLimit()) {
+              exploded = true;
+              finish();
+              return;
+            }
+            waveIndex += 1;
+            // 预计算下一波：决定是继续等待播放，还是播完本波立即收尾
+            const nextWave = computeFusionWave(grid);
+            if (nextWave.length === 0) {
+              // 最后一波：本波爆裂动画播完（×倍速）立即解锁，去掉多余的整段等待
+              window.setTimeout(finish, FUSION_BURST_MS * speedScale);
+              return;
+            }
+            // 还有后续波：亮起"正在反应"边框，波间隔随波次缩短（逐渐加快）
+            mapOutlineEl.classList.add('reacting');
+            const delay = Math.max(CASCADE_MIN_DELAY_MS, CASCADE_STEP_MS * speedScale);
+            window.setTimeout(() => step(nextWave), delay);
+          };
+          const finish = () => {
+            if (token !== moveToken) {
+              return;
+            }
+            // 级联结束：恢复粒子倍速、熄灭"正在反应"边框高亮
+            fxTimeScale = 1;
+            mapOutlineEl.classList.remove('reacting');
+            // 滚动窗口：只保留最近 AVG_WINDOW_MOVES 回合的聚变数
+            fusionCounts.push(fusedCount);
+            if (fusionCounts.length > AVG_WINDOW_MOVES) {
+              fusionCounts.shift();
+            }
+            updateAvgFusion();
+            if (!exploded) {
+              // 每回合自然冷却：基础 1.5 + 每个 ★ 额外 1
+              // （0 个★ 降 1.5，1 个★ 降 2.5，2 个★ 降 3.5，依此类推）
+              const cool = HEAT_COOL_PER_MOVE + HEAT_COOL_PER_STAR * countArtificial();
+              heat = Math.max(0, heat - cool);
+              updateHeatUI(false);
+              addRandomTile();
+              // 人工元素强化：每回合在每个人工元素周围随机生成一个 H/D 燃料
+              spawnFuelAroundArtificial();
+            }
+            busy = false;
+            setArrowsDisabled(false);
+            if (exploded) {
+              gameEnded = true;
+              fusionHistory.push('<span class="fp-boom">堆芯失控!</span>');
+              renderFusionLog();
+              triggerSupernova('boom');
+              shakeBoard();
+              showOverlay('堆芯失控!', '聚变装置温度飙升至上限，等离子体挣脱约束、失控爆发。散热系统已到极限——别炸了，重新点火再来一局？', false);
+            } else {
+              checkEndState();
+            }
+          };
+          if (!showReaction) {
+            // 不显示反应过程：所有连锁波瞬间结算，无动画/无粒子/无声效/无边框提示，
+            // 结算完立即解锁输入
+            for (;;) {
+              const wave = computeFusionWave(grid);
+              if (wave.length === 0) {
+                break;
+              }
+              applyFusionWave(wave, 1, true);
+              fusedCount += wave.length;
+              heat += wave.length * HEAT_PER_FUSION;
+              if (heat >= currentHeatLimit()) {
+                exploded = true;
+                break;
+              }
+            }
+            updateHeatUI(false);
+            finish();
+            return;
+          }
+          step();
+        }, MOVE_MS);
+      }
+
+      function shakeBoard() {
+        boardEl.classList.remove('shake');
+        void boardEl.offsetWidth;
+        boardEl.classList.add('shake');
+      }
+
+      function currentMaxTile() {
+        let max = 0;
+        for (const tile of grid.values()) {
+          max = Math.max(max, tile.value);
+        }
+        return max;
+      }
+
+      function checkEndState() {
+        if (gameEnded) {
+          return;
+        }
+
+        if (!won && currentMaxTile() >= 999) {
+          won = true;
+          showWinOverlay();
+          return;
+        }
+
+        if (!hasAnyMove(grid)) {
+          gameEnded = true;
+          showLoseOverlay();
+        }
+      }
+
+      function showOverlay(title, text, showKeepGoing) {
+        overlayTitleEl.textContent = title;
+        overlayTextEl.textContent = text;
+        keepGoingBtn.classList.toggle('hidden', !showKeepGoing);
+        overlayEl.classList.remove('hidden');
+      }
+
+      function hideOverlay() {
+        overlayEl.classList.add('hidden');
+      }
+
+      function showWinOverlay() {
+        showOverlay('合成出超重核!', '你在聚变装置里轰击双铀，造出了人造元素 ★。继续合成更重的核素？', true);
+        Sound.win();
+      }
+
+      function showLoseOverlay() {
+        showOverlay('Game over', 'No valid moves remain. Try again!', false);
+        Sound.lose();
+      }
+
+      function keepGoing() {
+        hideOverlay();
+        gameEnded = false;
+        setArrowsDisabled(false);
+      }
+
+      // 旋转后棋盘内容的近似外接圆半径（格子 + 方向按钮）；旋转不改变包围圆，
+      // 按圆适配即可保证 30° 旋转后不裁切
+      const MAP_RADIUS = ARROW_DIST + 34;
+
+      function fitGame() {
+        const width = Math.max(0, viewportEl.clientWidth - 16);
+        const bar = fusionBarEl.offsetHeight || 0;
+        // 按内容包围圆缩放（预留两倍栏高+边距，视觉底部才不会盖住
+        // 固定在视口底部的聚变信息栏）
+        const diameter = 2 * MAP_RADIUS;
+        const height = Math.max(0, viewportEl.clientHeight - 16 - 2 * bar);
+        // 布局未就绪（如重进浏览器/还原标签页瞬间）时视口尺寸可能为 0，
+        // 钳制缩放系数，避免棋盘被压成负/微小尺寸而"变小并移位"
+        const scale = Math.max(0.1, Math.min(width / diameter, height / diameter, 1));
+        // 地图上移：居中位置整体上移（最多 64px），拉近与顶部分数栏的距离；
+        // 上移只会加大底部留白，聚变栏始终安全；顶部至少保留 8px 边距
+        const slack = (viewportEl.clientHeight - diameter * scale) / 2;
+        const shift = Math.max(0, Math.min(slack - 8, 64));
+        boardWrapEl.style.transform =
+          'translateY(' + -shift.toFixed(1) + 'px) scale(' + scale + ') rotate(-30deg)';
+      }
+
+      buildBoardCells();
+      buildArrowButtons();
+      startNewGame();
+      fitGame();
+      sizeFx();
+      sizeSupernova();
+
+      // 反应过程显示/隐藏切换按钮：同步文案、置灰样式与本地存储
+      function updateReactionBtn() {
+        toggleReactionBtn.textContent = showReaction ? '反应过程：显示' : '反应过程：隐藏';
+        toggleReactionBtn.classList.toggle('off', !showReaction);
+        toggleReactionBtn.title = showReaction
+          ? '当前显示聚变反应过程动画；点击切换为不显示（瞬间结算）'
+          : '当前不显示聚变反应过程动画（瞬间结算，无边框提示）；点击切换为显示';
+      }
+      updateReactionBtn();
+      toggleReactionBtn.addEventListener('click', () => {
+        showReaction = !showReaction;
+        saveShowReaction();
+        updateReactionBtn();
+      });
+
+      // 自动玩：每 AUTOPLAY_INTERVAL_MS 随机选一个方向移动（仅在空闲时执行）
+      function updateAutoPlayBtn() {
+        autoPlayBtn.textContent = autoPlay ? '自动玩：开' : '自动玩：关';
+        autoPlayBtn.classList.toggle('on', autoPlay);
+        autoPlayBtn.title = autoPlay
+          ? '自动随机移动中，点击停止'
+          : '自动随机选择方向移动，点击开启';
+      }
+      function startAutoPlay() {
+        if (autoPlay) {
+          return;
+        }
+        autoPlay = true;
+        updateAutoPlayBtn();
+        autoPlayTimer = window.setInterval(() => {
+          if (!autoPlay) {
+            return;
+          }
+          // 游戏结束（含胜利弹窗未继续时）自动停止
+          if (gameEnded || (won && !overlayEl.classList.contains('hidden'))) {
+            stopAutoPlay();
+            return;
+          }
+          if (!busy) {
+            handleMove(DIRS[Math.floor(Math.random() * DIRS.length)], true);
+          }
+        }, AUTOPLAY_INTERVAL_MS);
+      }
+      function stopAutoPlay() {
+        if (!autoPlay) {
+          return;
+        }
+        autoPlay = false;
+        if (autoPlayTimer !== null) {
+          window.clearInterval(autoPlayTimer);
+          autoPlayTimer = null;
+        }
+        updateAutoPlayBtn();
+      }
+      updateAutoPlayBtn();
+      autoPlayBtn.addEventListener('click', () => {
+        if (autoPlay) {
+          stopAutoPlay();
+        } else {
+          startAutoPlay();
+        }
+      });
+
+      newGameBtn.addEventListener('click', startNewGame);
+      overlayNewGameBtn.addEventListener('click', startNewGame);
+      keepGoingBtn.addEventListener('click', keepGoing);
+
+      // 首次交互时解锁音频（浏览器自动播放策略）
+      const unlockAudio = () => Sound.unlock();
+      document.addEventListener('pointerdown', unlockAudio, { once: true });
+      document.addEventListener('keydown', unlockAudio, { once: true });
+      // 重进浏览器（bfcache 还原/切回标签页）时布局与 DPR 可能已变化：
+      // resize 之外再挂 pageshow 与 rAF，确保棋盘与特效画布按当前尺寸重算
+      const resizeAll = () => { fitGame(); sizeFx(); sizeSupernova(); };
+      window.addEventListener('resize', resizeAll);
+      window.addEventListener('pageshow', resizeAll);
+      // 标签页从后台切回：后台期间 rAF 暂停、粒子会冻结积压，
+      // 直接清空残留粒子并停掉特效循环，避免动画堆积同时播放导致卡顿
+      document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) {
+          fx.length = 0;
+          fxRunning = false;
+          lastFxTime = 0;
+          sizeFx();
+        }
+      });
+      requestAnimationFrame(resizeAll);
+      window.addEventListener('keydown', (event) => {
+        if (busy) {
+          return;
+        }
+
+        // QWEASD 控制六方向（地图逆时针旋转 30° 后的轴向，平顶六边形）：
+        //   Q=左上(NW)  W=上(NE)  E=右上(E)
+        //   A=左下(W)   S=下(SW)  D=右下(SE)
+        const keyDirections = {
+          q: DIRS[2], // Q → NW
+          w: DIRS[1], // W → NE
+          e: DIRS[0], // E → E
+          a: DIRS[3], // A → W
+          s: DIRS[4], // S → SW
+          d: DIRS[5], // D → SE
+          arrowright: DIRS[0],
+          arrowup: DIRS[1],
+          arrowleft: DIRS[3],
+          arrowdown: DIRS[5]
+        };
+        const direction = keyDirections[event.key.toLowerCase()];
+        if (direction) {
+          event.preventDefault();
+          handleMove(direction);
+        }
+      });
+
+      // ---------- 手势滑动：手机触屏滑动 / 电脑鼠标拖拽，等价于按方向按钮 ----------
+      const SWIPE_MIN_PX = 26; // 位移大于此值才判定为滑动
+      let gestureStart = null; // { x, y }
+      let touchActive = false;
+      let suppressMouseUntil = 0;
+
+      // 滑动位移 → 六方向中最近的一个（复用棋盘的轴向→像素几何，保证方向对齐）
+      function swipeToDir(dx, dy) {
+        // 地图已逆时针旋转 30°：先把屏幕滑动向量旋回棋盘轴向坐标系（+30°）再匹配
+        const cosR = Math.cos(Math.PI / 6);
+        const sinR = Math.sin(Math.PI / 6);
+        const rx = dx * cosR - dy * sinR;
+        const ry = dx * sinR + dy * cosR;
+        let best = DIRS[0];
+        let bestDot = -Infinity;
+        for (const d of DIRS) {
+          const p = hexToPixel(d.q, d.r);
+          const len = Math.hypot(p.x, p.y) || 1;
+          const dot = (rx * p.x + ry * p.y) / len;
+          if (dot > bestDot) {
+            bestDot = dot;
+            best = d;
+          }
+        }
+        return best;
+      }
+
+      function beginGesture(x, y) {
+        gestureStart = { x, y };
+      }
+
+      function endGesture(x, y) {
+        if (!gestureStart) {
+          return;
+        }
+        const dx = x - gestureStart.x;
+        const dy = y - gestureStart.y;
+        gestureStart = null;
+        if (Math.hypot(dx, dy) < SWIPE_MIN_PX) {
+          return; // 位移太小 = 点击，忽略
+        }
+        handleMove(swipeToDir(dx, dy));
+      }
+
+      boardEl.addEventListener('touchstart', (e) => {
+        touchActive = true;
+        const t = e.changedTouches[0];
+        beginGesture(t.clientX, t.clientY);
+      }, { passive: true });
+
+      boardEl.addEventListener('touchmove', (e) => {
+        if (e.cancelable) {
+          e.preventDefault(); // 阻止下拉刷新 / 页面手势
+        }
+      }, { passive: false });
+
+      boardEl.addEventListener('touchend', (e) => {
+        const t = e.changedTouches[0];
+        endGesture(t.clientX, t.clientY);
+        suppressMouseUntil = Date.now() + 600; // 抑制触摸后浏览器派发的合成鼠标事件
+        touchActive = false;
+      }, { passive: true });
+
+      boardEl.addEventListener('touchcancel', () => {
+        gestureStart = null;
+        touchActive = false;
+      }, { passive: true });
+
+      boardEl.addEventListener('mousedown', (e) => {
+        if (touchActive || Date.now() < suppressMouseUntil || e.button !== 0) {
+          return;
+        }
+        e.preventDefault();
+        beginGesture(e.clientX, e.clientY);
+      });
+
+      window.addEventListener('mousemove', (e) => {
+        if (gestureStart) {
+          e.preventDefault(); // 拖拽时禁止选中/拖放
+        }
+      });
+
+      window.addEventListener('mouseup', (e) => {
+        if (gestureStart && e.button === 0) {
+          endGesture(e.clientX, e.clientY);
+        }
+      });
+    })();
+  </script>
+</body>
+</html>
