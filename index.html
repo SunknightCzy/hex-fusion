@@ -2369,6 +2369,7 @@
 
       // 根据当前 ★ 数量启停/更新辐射强度
       function updateCherenkov() {
+        cherenkov.weight = radiationWeight();
         cherenkov.intensity = cherenkovIntensity();
         if (cherenkov.intensity <= 0) {
           cherenkov.streaks.length = 0;
