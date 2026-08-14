@@ -125,8 +125,37 @@
       box-shadow: 0 0 14px rgba(255, 70, 60, 0.55);
     }
 
-    .heat-box.heat-pop .score-value {
+    .heat-box.heat-pop .heat-value {
       animation: heat-pop 0.28s ease;
+    }
+
+    /* 热量两行显示：上热量、中短横杠、下阈值，上下左右居中 */
+    .heat-lines {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 36px;
+    }
+
+    .heat-value {
+      font-size: 18px;
+      font-weight: 800;
+      line-height: 1.2;
+    }
+
+    .heat-divider {
+      width: 26px;
+      height: 1px;
+      background: rgba(255, 255, 255, 0.4);
+      margin: 2px 0;
+    }
+
+    .heat-limit {
+      font-size: 12px;
+      font-weight: 700;
+      line-height: 1.2;
+      color: rgba(255, 255, 255, 0.75);
     }
 
     /* 散热率输入框 */
@@ -838,9 +867,13 @@
     <header class="topbar">
       <div class="brand">hex-fusion</div>
       <div class="scores">
-        <div class="score-box heat-box" id="heatBox" title="堆芯热量：每次聚变 +1；每回合散热基础值 1.5（每个 ★ 额外 +1）；达到 16 失控（合成 ★ 后上限 32）">
+        <div class="score-box heat-box" id="heatBox" title="堆芯热量：每次聚变 +1；每回合散热基础值 1.5（每个 ★ 额外 +1）；达到上限失控，点「继续游戏」清空热量（合成 ★ 后上限 32）">
           <span class="score-label">🔥 热量</span>
-          <span class="score-value" id="heat">0</span>
+          <span class="heat-lines">
+            <span class="heat-value" id="heat">0</span>
+            <span class="heat-divider"></span>
+            <span class="heat-limit" id="heatLimit">16</span>
+          </span>
         </div>
         <div class="score-box cool-box" title="基础散热值（可修改，默认 1.5）；每个 ★ 额外 +1">
           <span class="score-label">基础散热值</span>
@@ -1347,6 +1380,7 @@
       const controlsEl = document.getElementById('controls');
       const heatBoxEl = document.getElementById('heatBox');
       const heatEl = document.getElementById('heat');
+      const heatLimitEl = document.getElementById('heatLimit');
       const viewportEl = document.getElementById('viewport');
       const overlayEl = document.getElementById('overlay');
       const overlayTitleEl = document.getElementById('overlayTitle');
@@ -1425,6 +1459,8 @@
       // 是否已合成出第一个人工元素（★）：解锁后热度上限提升到 32，
       // 且每回合在每个 ★ 周围随机生成一个 H/D 燃料（散热按 ★ 数量线性叠加）
       let artificialUnlocked = false;
+      // 堆芯失控（超阈值）后等待"继续游戏"：点击后清空热量继续（不判负）
+      let boomContinue = false;
       // 最近一步滑动内发生的聚变反应（用于右侧"上一步聚变"提示）
       let fusionHistory = [];
 
@@ -1737,6 +1773,7 @@
         fusionHistory = [];
         heat = 0;
         artificialUnlocked = false;
+        boomContinue = false;
         // 清理级联聚变遗留的"正在反应"边框高亮与粒子倍速
         mapOutlineEl.classList.remove('reacting');
         fxTimeScale = 1;
@@ -2512,17 +2549,18 @@
       function updateHeatTitle() {
         const base = formatCool(heatCoolPerMove);
         heatBoxEl.title = artificialUnlocked
-          ? '堆芯热量：每次聚变 +1；每回合散热基础值 ' + base + '（每个 ★ 额外 +1）；达到 ' + HEAT_LIMIT_AFTER_ARTIFICIAL + ' 失控'
-          : '堆芯热量：每次聚变 +1；每回合散热基础值 ' + base + '（每个 ★ 额外 +1）；达到 ' + HEAT_LIMIT_BASE + ' 失控（合成 ★ 后上限提升至 ' + HEAT_LIMIT_AFTER_ARTIFICIAL + '）';
+          ? '堆芯热量：每次聚变 +1；每回合散热基础值 ' + base + '（每个 ★ 额外 +1）；达到上限失控，点「继续游戏」清空热量（合成 ★ 后上限 ' + HEAT_LIMIT_AFTER_ARTIFICIAL + '）'
+          : '堆芯热量：每次聚变 +1；每回合散热基础值 ' + base + '（每个 ★ 额外 +1）；达到上限失控，点「继续游戏」清空热量（合成 ★ 后上限提升至 ' + HEAT_LIMIT_AFTER_ARTIFICIAL + '）';
       }
 
       // 更新热量显示与危险等级（animate=true 时数字跳动一下）
       function updateHeatUI(animate) {
         // 冷却值（1.3/1.6 等）在二进制中不精确，累加会带出长串小数，显示前四舍五入到一位小数
         const lim = currentHeatLimit();
-        heatEl.textContent = Math.round(heat * 10) / 10 + '/' + lim;
+        heatEl.textContent = Math.round(heat * 10) / 10;
+        heatLimitEl.textContent = lim;
         heatBoxEl.classList.remove('heat-l0', 'heat-l1', 'heat-l2', 'heat-l3');
-        // 等级阈值按当前上限比例划分，上限提升（合成 ★ 后 10→30）自动适配
+        // 等级阈值按当前上限比例划分，上限提升（合成 ★ 后 16→32）自动适配
         const lvl = heat >= lim * 0.85 ? 3 : heat >= lim * 0.55 ? 2 : heat >= lim * 0.3 ? 1 : 0;
         heatBoxEl.classList.add('heat-l' + lvl);
         heatBoxEl.classList.remove('heat-pop');
@@ -2661,7 +2699,8 @@
       })();
 
       function handleMove(direction) {
-        if (busy || gameEnded || (won && !overlayEl.classList.contains('hidden'))) {
+        // 弹窗（胜利/失控/失败）显示期间不响应移动
+        if (busy || gameEnded || !overlayEl.classList.contains('hidden')) {
           return;
         }
         const moves = slideOnly(grid, direction);
@@ -2755,12 +2794,13 @@
             busy = false;
             setArrowsDisabled(false);
             if (exploded) {
-              gameEnded = true;
+              // 超阈值：不判负，提供"继续游戏"清空热量后重新点火
+              boomContinue = true;
               fusionHistory.push('<span class="fp-boom">堆芯失控!</span>');
               renderFusionLog();
               triggerSupernova('boom');
               shakeBoard();
-              showOverlay('堆芯失控!', '聚变装置温度飙升至上限，等离子体挣脱约束、失控爆发。散热系统已到极限——别炸了，重新点火再来一局？', false);
+              showOverlay('堆芯失控!', '聚变装置温度飙升至上限，等离子体挣脱约束、失控爆发。点击「继续游戏」清空热量，重新点火。', true);
             } else {
               checkEndState();
             }
@@ -2844,6 +2884,12 @@
       function keepGoing() {
         hideOverlay();
         gameEnded = false;
+        // 堆芯失控后继续：清空热量，重新点火
+        if (boomContinue) {
+          boomContinue = false;
+          heat = 0;
+          updateHeatUI(false);
+        }
         setArrowsDisabled(false);
       }
 
