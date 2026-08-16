@@ -810,7 +810,7 @@
       }
     }
 
-    .overlay {
+      .overlay {
       position: absolute;
       inset: 0;
       z-index: 20;
@@ -876,6 +876,168 @@
       filter: brightness(1.06);
     }
 
+      /* 移动端适配：弹窗固定到视口，避免 #game 的 840px 宽度把提示卡撑出屏幕 */
+      .overlay {
+        position: fixed;
+        inset: 0;
+        width: 100vw;
+        height: 100vh;
+        height: 100dvh;
+        z-index: 200;
+        padding: 12px;
+        background: rgba(8, 12, 24, 0.72);
+      }
+
+      .overlay-card {
+        width: 92vw;
+        width: min(92vw, 620px);
+        min-width: 0;
+        max-width: none;
+        max-height: calc(100vh - 24px);
+        max-height: calc(100dvh - 24px);
+        overflow-y: auto;
+        border-radius: 20px;
+        padding: clamp(22px, 4.5vw, 30px) clamp(18px, 4.5vw, 28px) clamp(20px, 4vw, 26px);
+      }
+
+      .overlay-card h2 {
+        margin: 0 0 10px;
+        font-size: clamp(27px, 7vw, 38px);
+        line-height: 1.15;
+      }
+
+      .overlay-card p {
+        margin: 0 0 20px;
+        font-size: clamp(14px, 3.7vw, 16px);
+        line-height: 1.65;
+        overflow-wrap: break-word;
+        word-break: break-word;
+      }
+
+      .overlay-actions button {
+        white-space: nowrap;
+      }
+
+      /* 热量横幅：超过阈值 3/4 时提示，移动端固定到安全区内并允许自动换行 */
+      .heat-banner {
+        position: fixed;
+        left: 50%;
+        top: 10px;
+        top: calc(10px + env(safe-area-inset-top));
+        transform: translateX(-50%);
+        z-index: 300;
+        width: calc(100vw - 20px);
+        width: min(calc(100vw - 20px), 680px);
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        padding: 10px 12px;
+        background: linear-gradient(180deg, rgba(255, 92, 60, 0.97), rgba(188, 42, 24, 0.97));
+        border: 1px solid rgba(255, 190, 150, 0.55);
+        border-radius: 14px;
+        color: #fff6ec;
+        box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45);
+      }
+
+      .heat-banner.hidden {
+        display: none;
+      }
+
+      .heat-banner:not(.hidden) {
+        animation: heat-banner-in 0.28s ease-out;
+      }
+
+      .heat-banner-icon {
+        flex: 0 0 auto;
+        font-size: 18px;
+        line-height: 1.3;
+      }
+
+      .heat-banner-body {
+        flex: 1 1 auto;
+        min-width: 0;
+      }
+
+      .heat-banner-title {
+        display: block;
+        font-size: 13px;
+        font-weight: 800;
+        margin-bottom: 3px;
+      }
+
+      .heat-banner-text {
+        display: block;
+        font-size: 12px;
+        line-height: 1.55;
+        overflow-wrap: break-word;
+        word-break: break-word;
+      }
+
+      .heat-banner-close {
+        flex: 0 0 auto;
+        margin-top: 2px;
+        background: rgba(0, 0, 0, 0.22);
+        border: 1px solid rgba(255, 255, 255, 0.25);
+        color: #fff6ec;
+        padding: 6px 10px;
+        border-radius: 9px;
+        font-size: 12px;
+        font-weight: 700;
+      }
+
+      @keyframes heat-banner-in {
+        from {
+          opacity: 0;
+          transform: translate(-50%, -12px);
+        }
+        to {
+          opacity: 1;
+          transform: translate(-50%, 0);
+        }
+      }
+
+      @media (max-width: 540px) {
+        .overlay {
+          padding: 10px;
+        }
+
+        .overlay-card {
+          width: 92vw;
+          width: min(92vw, 440px);
+          max-height: calc(100vh - 20px);
+          max-height: calc(100dvh - 20px);
+          padding: 20px 16px 18px;
+          border-radius: 18px;
+        }
+
+        .overlay-card h2 {
+          font-size: 26px;
+        }
+
+        .overlay-card p {
+          font-size: 14px;
+          line-height: 1.6;
+        }
+
+        .overlay-actions button {
+          padding: 12px 14px;
+        }
+
+        .heat-banner {
+          width: calc(100vw - 16px);
+          gap: 8px;
+          padding: 9px 10px;
+          border-radius: 12px;
+        }
+      }
+
+      @media (max-width: 350px) {
+        .overlay-actions button {
+          flex: 1 1 100%;
+        }
+      }
+
+
     @media (max-width: 540px) {
       #fusionBar {
         width: 96%;
@@ -923,6 +1085,55 @@
         font-size: 30px;
       }
     }
+
+      /* 胜利 / 堆芯失控结算卡的类型化边框 */
+      .overlay-card.win {
+        border-color: rgba(255, 214, 120, 0.42);
+        box-shadow: 0 18px 50px rgba(0, 0, 0, 0.55), 0 0 26px rgba(255, 200, 90, 0.16);
+      }
+
+      .overlay-card.boom {
+        border-color: rgba(255, 110, 80, 0.5);
+        box-shadow: 0 18px 50px rgba(0, 0, 0, 0.55), 0 0 26px rgba(255, 80, 50, 0.18);
+      }
+
+      /* 放在原始移动端媒体查询之后，确保胜利结算横幅在手机上也使用小屏尺寸 */
+      @media (max-width: 540px) {
+        .overlay-card.win,
+        .overlay-card.boom {
+          width: 92vw;
+          width: min(92vw, 440px);
+          max-height: calc(100vh - 20px);
+          max-height: calc(100dvh - 20px);
+          padding: 20px 16px 18px;
+          border-radius: 18px;
+        }
+
+        .overlay-card.win h2,
+        .overlay-card.boom h2 {
+          font-size: 26px;
+          line-height: 1.2;
+        }
+
+        .overlay-card.win p,
+        .overlay-card.boom p {
+          font-size: 14px;
+          line-height: 1.6;
+        }
+
+        .overlay-card.win .overlay-actions button,
+        .overlay-card.boom .overlay-actions button {
+          padding: 12px 14px;
+        }
+      }
+
+      @media (max-width: 350px) {
+        .overlay-card.win .overlay-actions button,
+        .overlay-card.boom .overlay-actions button {
+          flex: 1 1 100%;
+        }
+      }
+
   </style>
 </head>
 <body>
@@ -930,7 +1141,7 @@
     <header class="topbar">
       <div class="brand">hex-fusion</div>
       <div class="scores">
-        <div class="score-box heat-box" id="heatBox" title="堆芯热量：每次聚变 +1；每回合散热基础值 1.5（每个 ★ 额外 +1）；达到上限失控，点「继续游戏」清空热量（合成 ★ 后上限 32）">
+        <div class="score-box heat-box" id="heatBox" title="堆芯热量：每次聚变 +1；每回合散热基础值 1.5（每个 ★ 额外 +1）；达到上限失控，点「那咋了？」清空热量继续（合成 ★ 后上限 32）">
           <span class="score-label">🔥 热量</span>
           <span class="heat-lines">
             <span class="heat-value" id="heat">0</span>
@@ -949,6 +1160,16 @@
       <button class="debug-btn" id="debugAuBtn" type="button" title="调试：在随机空位放置一颗 Au-197">调试·放 Au</button>
     </header>
 
+      <div id="heatBanner" class="heat-banner hidden" role="alert" aria-hidden="true">
+        <span class="heat-banner-icon" aria-hidden="true">⚠️</span>
+        <span class="heat-banner-body">
+          <span class="heat-banner-title">堆芯热量警告</span>
+          <span class="heat-banner-text">每个聚变反应都会增加1热量，若热量超过阈值则游戏结束。热量阈值初始为16，每回合基础散热量为1.5。</span>
+        </span>
+        <button class="heat-banner-close" id="heatBannerClose" type="button">知道了</button>
+      </div>
+
+
     <div id="mainRow">
       <main id="viewport">
         <div id="game">
@@ -960,7 +1181,7 @@
             <div id="controls"></div>
           </div>
           <div id="overlay" class="overlay hidden">
-            <div class="overlay-card">
+            <div class="overlay-card" id="overlayCard">
               <h2 id="overlayTitle"></h2>
               <p id="overlayText"></p>
               <div class="overlay-actions">
@@ -1454,6 +1675,7 @@
       const heatLimitEl = document.getElementById('heatLimit');
       const viewportEl = document.getElementById('viewport');
       const overlayEl = document.getElementById('overlay');
+      const overlayCardEl = document.getElementById('overlayCard');
       const overlayTitleEl = document.getElementById('overlayTitle');
       const overlayTextEl = document.getElementById('overlayText');
       const overlayNewGameBtn = document.getElementById('overlayNewGameBtn');
@@ -1462,6 +1684,8 @@
       const toggleReactionBtn = document.getElementById('toggleReactionBtn');
       const debugAuBtn = document.getElementById('debugAuBtn');
       const coolInput = document.getElementById('coolInput');
+        const heatBannerEl = document.getElementById('heatBanner');
+        const heatBannerCloseBtn = document.getElementById('heatBannerClose');
       const fusionBarEl = document.getElementById('fusionBar');
       const fxCanvas = document.getElementById('fx');
       const fxCtx = fxCanvas.getContext('2d');
@@ -1532,8 +1756,11 @@
       // 是否已合成出第一个人工元素（★）：解锁后热度上限提升到 32，
       // 且每回合在每个 ★ 周围随机生成一个 H/D 燃料（散热按 ★ 数量线性叠加）
       let artificialUnlocked = false;
-      // 堆芯失控（超阈值）后等待"继续游戏"：点击后清空热量继续（不判负）
+      // 堆芯失控（超阈值）后等待"那咋了？"按钮：点击后清空热量继续（不判负）
       let boomContinue = false;
+        // 热量达到当前阈值 3/4 时横幅提示（每局只弹一次）
+        let heatWarningShown = false;
+        let heatBannerTimer = 0;
       // 最近一步滑动内发生的聚变反应（用于右侧"上一步聚变"提示）
       let fusionHistory = [];
 
@@ -1649,7 +1876,6 @@
       const IMPLODE_MS = 260;
       // 聚变产物爆裂动画时长（毫秒）：最后一波播完即可解锁输入，不再多等整段波间隔
       const FUSION_BURST_MS = 400;
-
       function removeTileElement(tile) {
         if (tile.el && tile.el.parentNode) {
           tile.el.parentNode.removeChild(tile.el);
@@ -1807,35 +2033,59 @@
         return n;
       }
 
-      // 人工元素强化：每回合在每个 ★ 周围随机空位生成一个 H 或 D 燃料；
-      // 多个 ★ 的候选空位互不重叠（同回合内）
-      function spawnFuelAroundArtificial() {
-        if (!artificialUnlocked) {
-          return;
-        }
-        const taken = new Set();
-        for (const tile of grid.values()) {
-          if (!ARTIFICIAL_VALUES.has(tile.value)) {
-            continue;
-          }
-          const candidates = [];
-          for (const d of DIRS) {
-            const q = tile.q + d.q;
-            const r = tile.r + d.r;
-            const k = key(q, r);
-            if (CELLS.some((c) => c.q === q && c.r === r) && !grid.has(k) && !taken.has(k)) {
-              candidates.push({ q, r });
+      // 双星粒子优化：判断场上是否同时存在普通★（999）与彩色超级★（1000）
+      // 人工元素燃料生成见下方 spawnFuelAroundArtificial
+        // 双星同场时，普通聚变反应粒子数量降至约 1/3
+        function hasBothStarTypes() {
+          let hasNormalStar = false;
+          let hasColorStar = false;
+          for (const tile of grid.values()) {
+            if (tile.value === 999) {
+              hasNormalStar = true;
+            } else if (tile.value === SUPER_STAR_VALUE) {
+              hasColorStar = true;
+            }
+            if (hasNormalStar && hasColorStar) {
+              return true;
             }
           }
-          if (candidates.length === 0) {
-            continue;
-          }
-          const spot = candidates[Math.floor(Math.random() * candidates.length)];
-          taken.add(key(spot.q, spot.r));
-          const value = Math.random() < 0.9 ? 1 : 2;
-          createTile(value, spot.q, spot.r, true);
+          return false;
         }
-      }
+
+        // 普通聚变的内聚粒子数量：双星同场时减到 2，缓解低性能设备卡顿
+        function fusionInwardCount(value) {
+          return hasBothStarTypes() && !ARTIFICIAL_VALUES.has(value) ? 2 : 5;
+        }
+
+        // 人工元素强化：每个 ★ 每回合在周围随机空位生成一个 H 或 D 燃料；
+        // 多个 ★ 的候选空位互不重叠（同回合内）
+        function spawnFuelAroundArtificial() {
+          if (!artificialUnlocked) {
+            return;
+          }
+          const taken = new Set();
+          for (const tile of grid.values()) {
+            if (!ARTIFICIAL_VALUES.has(tile.value)) {
+              continue;
+            }
+            const candidates = [];
+            for (const d of DIRS) {
+              const q = tile.q + d.q;
+              const r = tile.r + d.r;
+              const k = key(q, r);
+              if (CELLS.some((c) => c.q === q && c.r === r) && !grid.has(k) && !taken.has(k)) {
+                candidates.push({ q, r });
+              }
+            }
+            if (candidates.length === 0) {
+              continue;
+            }
+            const spot = candidates[Math.floor(Math.random() * candidates.length)];
+            taken.add(key(spot.q, spot.r));
+            const value = Math.random() < 0.9 ? 1 : 2;
+            createTile(value, spot.q, spot.r, true);
+          }
+        }
 
       function startNewGame() {
         // 级联聚变动画期间锁定外界输入（触屏、点击等），不响应"新游戏"
@@ -1851,6 +2101,8 @@
         heat = 0;
         artificialUnlocked = false;
         boomContinue = false;
+          heatWarningShown = false;
+          hideHeatWarningBanner();
         // 清理级联聚变遗留的"正在反应"边框高亮与粒子倍速
         mapOutlineEl.classList.remove('reacting');
         fxTimeScale = 1;
@@ -1877,8 +2129,8 @@
       function fxSpeed(p) {
         if (fxTimeScale !== 1) {
           p.maxLife /= fxTimeScale;
-          p.vx *= fxTimeScale;
-          p.vy *= fxTimeScale;
+          if (p.vx !== undefined) { p.vx *= fxTimeScale;
+          p.vy *= fxTimeScale; }
         }
         return p;
       }
@@ -1928,44 +2180,48 @@
         }));
       }
 
-      function spawnFusionParticles(q, r, value) {
-        const fxDef = FUSION_FX[value] || { emit: ['n', 'gam'] };
-        const pt = hexToPixel(q, r);
-        const cx = CENTER_X + pt.x;
-        const cy = CENTER_Y + pt.y;
-        (fxDef.emit || []).forEach((type) => {
-          for (let i = 0; i < (PARTICLE_COUNTS[type] || 2); i += 1) {
-            fxSpawn(cx, cy, type, false);
+        // 性能优化：场上同时存在普通★与彩色超级★时，普通聚变粒子数量降到约 1/3；
+        // 不影响切伦科夫辐射，也不影响 ★ / 彩色超级★ 生成时的特效。
+        function spawnFusionParticles(q, r, value) {
+          const fxDef = FUSION_FX[value] || { emit: ['n', 'gam'] };
+          const reduceFx = hasBothStarTypes() && !ARTIFICIAL_VALUES.has(value);
+          const particleCount = (base) => (reduceFx ? Math.max(1, Math.ceil(base * 0.35)) : base);
+          const pt = hexToPixel(q, r);
+          const cx = CENTER_X + pt.x;
+          const cy = CENTER_Y + pt.y;
+          (fxDef.emit || []).forEach((type) => {
+            for (let i = 0; i < particleCount(PARTICLE_COUNTS[type] || 2); i += 1) {
+              fxSpawn(cx, cy, type, false);
+            }
+          });
+          (fxDef.absorb || []).forEach((type) => {
+            for (let i = 0; i < particleCount(PARTICLE_COUNTS[type] || 2); i += 1) {
+              fxSpawn(cx, cy, type, true);
+            }
+          });
+          if (fxDef.supernova) {
+            // 以 Au（197）产物棋子为中心触发超新星（从全屏中心改为 Au 所在位置）
+            const prodTile = grid.get(key(q, r));
+            let snCx;
+            let snCy;
+            if (prodTile && prodTile.el) {
+              const rect = prodTile.el.getBoundingClientRect();
+              snCx = rect.left + rect.width / 2;
+              snCy = rect.top + rect.height / 2;
+            } else {
+              snCx = window.innerWidth / 2;
+              snCy = window.innerHeight / 2;
+            }
+            triggerSupernova('nova', snCx, snCy);
           }
-        });
-        (fxDef.absorb || []).forEach((type) => {
-          for (let i = 0; i < (PARTICLE_COUNTS[type] || 2); i += 1) {
-            fxSpawn(cx, cy, type, true);
+          const ring = fxDef.supernova ? 160 : 44;
+          fx.push(fxSpeed({ x: cx, y: cy, type: 'flash', absorb: false, life: 0, maxLife: 0.45, ring }));
+          if (!fxDef.supernova && !reduceFx) {
+            // 第二道冲击波：更大一圈的淡金光环，增强聚变爆发感
+            fx.push(fxSpeed({ x: cx, y: cy, type: 'flash', absorb: false, life: 0.1, maxLife: 0.52, ring: ring * 1.9 }));
           }
-        });
-        if (fxDef.supernova) {
-          // 以 Au（197）产物棋子为中心触发超新星（从全屏中心改为 Au 所在位置）
-          const prodTile = grid.get(key(q, r));
-          let snCx;
-          let snCy;
-          if (prodTile && prodTile.el) {
-            const rect = prodTile.el.getBoundingClientRect();
-            snCx = rect.left + rect.width / 2;
-            snCy = rect.top + rect.height / 2;
-          } else {
-            snCx = window.innerWidth / 2;
-            snCy = window.innerHeight / 2;
-          }
-          triggerSupernova('nova', snCx, snCy);
+          startFx();
         }
-        const ring = fxDef.supernova ? 160 : 44;
-        fx.push(fxSpeed({ x: cx, y: cy, type: 'flash', absorb: false, life: 0, maxLife: 0.45, ring }));
-        if (!fxDef.supernova) {
-          // 第二道冲击波：更大一圈的淡金光环，增强聚变爆发感
-          fx.push(fxSpeed({ x: cx, y: cy, type: 'flash', absorb: false, life: 0.1, maxLife: 0.52, ring: ring * 1.9 }));
-        }
-        startFx();
-      }
 
       function fxGlow(ctx, color, blur) {
         ctx.shadowColor = color;
@@ -1991,6 +2247,7 @@
           ctx.globalAlpha = 1;
           return;
         }
+
         if (p.type === 'alp') {
           fxGlow(ctx, '#ff5722', 12);
           fxDot(ctx, p.x, p.y, 5, '#ff5722');
@@ -2626,7 +2883,7 @@
                 continue;
               }
               const pt = hexToPixel(t.q, t.r);
-              for (let i = 0; i < 5; i += 1) {
+              for (let i = 0; i < fusionInwardCount(r.product); i += 1) {
                 fxInward(
                   CENTER_X + pt.x + (Math.random() - 0.5) * 34,
                   CENTER_Y + pt.y + (Math.random() - 0.5) * 34,
@@ -2653,7 +2910,7 @@
               inner.style.animationDuration = (IMPLODE_MS / 1000 * speedScale) + 's';
               lingeringTiles.push(t.el);
               const pt = hexToPixel(t.q, t.r);
-              for (let i = 0; i < 5; i += 1) {
+              for (let i = 0; i < fusionInwardCount(r.product); i += 1) {
                 fxInward(
                   CENTER_X + pt.x + (Math.random() - 0.5) * 34,
                   CENTER_Y + pt.y + (Math.random() - 0.5) * 34,
@@ -2766,8 +3023,8 @@
       function updateHeatTitle() {
         const base = formatCool(heatCoolPerMove);
         heatBoxEl.title = artificialUnlocked
-          ? '堆芯热量：每次聚变 +1；每回合散热基础值 ' + base + '（每个 ★ 额外 +1）；达到上限失控，点「继续游戏」清空热量（合成 ★ 后上限 ' + HEAT_LIMIT_AFTER_ARTIFICIAL + '）'
-          : '堆芯热量：每次聚变 +1；每回合散热基础值 ' + base + '（每个 ★ 额外 +1）；达到上限失控，点「继续游戏」清空热量（合成 ★ 后上限提升至 ' + HEAT_LIMIT_AFTER_ARTIFICIAL + '）';
+          ? '堆芯热量：每次聚变 +1；每回合散热基础值 ' + base + '（每个 ★ 额外 +1）；达到上限失控，点「那咋了？」清空热量继续（合成 ★ 后上限 ' + HEAT_LIMIT_AFTER_ARTIFICIAL + '）'
+          : '堆芯热量：每次聚变 +1；每回合散热基础值 ' + base + '（每个 ★ 额外 +1）；达到上限失控，点「那咋了？」清空热量继续（合成 ★ 后上限提升至 ' + HEAT_LIMIT_AFTER_ARTIFICIAL + '）';
       }
 
       // 更新热量显示与危险等级（animate=true 时数字跳动一下）
@@ -2786,6 +3043,35 @@
           heatBoxEl.classList.add('heat-pop');
         }
       }
+
+        // 热量达到当前阈值 3/4：弹出横幅提示（每局游戏仅一次），移动端可自动换行、可手动关闭
+        function hideHeatWarningBanner() {
+          if (heatBannerTimer) {
+            window.clearTimeout(heatBannerTimer);
+            heatBannerTimer = 0;
+          }
+          heatBannerEl.classList.add('hidden');
+          heatBannerEl.setAttribute('aria-hidden', 'true');
+        }
+
+        function showHeatWarningBanner() {
+          if (heatWarningShown) {
+            return;
+          }
+          heatWarningShown = true;
+          if (heatBannerTimer) {
+            window.clearTimeout(heatBannerTimer);
+          }
+          heatBannerEl.classList.remove('hidden');
+          heatBannerEl.setAttribute('aria-hidden', 'false');
+          heatBannerTimer = window.setTimeout(hideHeatWarningBanner, 6500);
+        }
+
+        function maybeShowHeatWarning() {
+          if (!heatWarningShown && heat >= currentHeatLimit() * 0.75) {
+            showHeatWarningBanner();
+          }
+        }
 
       // 渲染"上一步聚变"信息（棋盘/按钮下方）
       function renderFusionLog() {
@@ -2981,6 +3267,7 @@
             fusedCount += wave.length;
             heat += wave.length * HEAT_PER_FUSION;
             updateHeatUI(true);
+            maybeShowHeatWarning();
             if (heat >= currentHeatLimit()) {
               exploded = true;
               finish();
@@ -3021,13 +3308,13 @@
             busy = false;
             setArrowsDisabled(false);
             if (exploded) {
-              // 超阈值：不判负，提供"继续游戏"清空热量后重新点火
+              // 超阈值：不判负，提供"那咋了？"按钮清空热量后重新点火
               boomContinue = true;
               fusionHistory.push('<span class="fp-boom">堆芯失控!</span>');
               renderFusionLog();
               triggerSupernova('boom');
               shakeBoard();
-              showOverlay('堆芯失控!', '聚变装置温度飙升至上限，等离子体挣脱约束、失控爆发。点击「继续游戏」清空热量，重新点火。', true);
+              showOverlay('堆芯失控!', '聚变装置热量飙升至上限，等离子体挣脱约束、失控爆炸。点击「新游戏」重新开始游戏。', true, '那咋了？', 'boom');
             } else {
               checkEndState();
             }
@@ -3049,6 +3336,7 @@
               }
             }
             updateHeatUI(false);
+            maybeShowHeatWarning();
             finish();
             return;
           }
@@ -3087,10 +3375,14 @@
         }
       }
 
-      function showOverlay(title, text, showKeepGoing) {
+      function showOverlay(title, text, showKeepGoing, keepGoingText, kind) {
+        hideHeatWarningBanner();
+        overlayCardEl.classList.toggle('win', kind === 'win');
+        overlayCardEl.classList.toggle('boom', kind === 'boom');
         overlayTitleEl.textContent = title;
         overlayTextEl.textContent = text;
         keepGoingBtn.classList.toggle('hidden', !showKeepGoing);
+        keepGoingBtn.textContent = keepGoingText || 'Keep Going';
         overlayEl.classList.remove('hidden');
       }
 
@@ -3099,7 +3391,7 @@
       }
 
       function showWinOverlay() {
-        showOverlay('合成出超重核!', '你在聚变装置里轰击双铀，造出了人造元素 ★。继续合成更重的核素？', true);
+        showOverlay('合成出超重核!', '你在聚变装置里轰击双铀，造出了人造元素 ★。继续合成更重的核素？', true, undefined, 'win');
         Sound.win();
       }
 
@@ -3197,6 +3489,7 @@
       newGameBtn.addEventListener('click', startNewGame);
       overlayNewGameBtn.addEventListener('click', startNewGame);
       keepGoingBtn.addEventListener('click', keepGoing);
+      heatBannerCloseBtn.addEventListener('click', hideHeatWarningBanner);
 
       // 调试：在随机空位放置一颗 Au-197（不影响热度/分数，用于测试）
       function debugPlaceAu() {
